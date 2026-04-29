@@ -1,6 +1,6 @@
 ---
 source: Rmd
-title: Exploratory analysis and quality control
+title: 探索性分析与质量控制
 teaching: 120
 exercises: 60
 editor_options:
@@ -11,26 +11,20 @@ editor_options:
 source("download_data.R")
 ```
 
-::::::::::::::::::::::::::::::::::::::: objectives
+::: objectives
+- 学习如何探索基因表达矩阵并进行常见的质量控制步骤。
+- 学习如何搭建用于探索性分析的交互式应用。
+:::
 
-- Learn how to explore the gene expression matrix and perform common quality control steps.
-- Learn how to set up an interactive application for exploratory analysis.
+::: questions
+- 为什么探索性分析是 RNA-seq 分析中不可或缺的一环？
+- 在做探索性分析前，应如何对原始 count 矩阵进行预处理？
+- 用二维空间足以表示我们的数据吗？
+:::
 
-::::::::::::::::::::::::::::::::::::::::::::::::::
+## 加载 R 包
 
-:::::::::::::::::::::::::::::::::::::::: questions
-
-- Why is exploratory analysis an essential part of an RNA-seq analysis? 
-- How should one preprocess the raw count matrix for exploratory analysis?  
-- Are two dimensions sufficient to represent your data?
-
-::::::::::::::::::::::::::::::::::::::::::::::::::
-
-
-## Load packages
-
-Assuming you just started RStudio again, load some packages we will use in this lesson along with the `SummarizedExperiment` object we created in the last lesson.
-
+假设你刚刚重新打开了 RStudio，在这里加载本节课会用到的若干 R 包，以及上一节课创建的 `SummarizedExperiment` 对象。
 
 ```{r load-pkg}
 suppressPackageStartupMessages({
@@ -49,142 +43,124 @@ suppressPackageStartupMessages({
 se <- readRDS("data/GSE96870_se.rds")
 ```
 
+## 去除未表达的基因
 
-## Remove unexpressed genes
-
-Exploratory analysis is crucial for quality control and to get to know our data.
-It can help us detect quality problems, sample swaps and contamination, as well as give us a sense of the most salient patterns present in the data.
-In this episode, we will learn about two common ways of performing exploratory analysis for RNA-seq data; namely clustering and principal component analysis (PCA).
-These tools are in no way limited to (or developed for) analysis of RNA-seq data.
-However, there are certain characteristics of count assays that need to be taken into account when they are applied to this type of data. First of all, not all mouse genes in the genome will be expressed in our Cerebellum samples. There are many different threshold you could use to say whether a gene's expression was detectable or not; here we are going to use a very minimal one that if a gene does not have more than 5 counts total across all samples, there is simply not enough data to be able to do anything with it anyway. 
+探索性分析对于质量控制和熟悉数据都至关重要。它能帮我们发现质量问题、样本错配和污染，也能让我们对数据中最显著的模式有一个整体把握。本节课我们将学习两种常用于 RNA-seq 数据探索性分析的方法：聚类（clustering）和主成分分析（PCA）。这些工具并不局限于（也不是专门为）RNA-seq 数据分析而开发的。但 count 类型的数据有一些特性，在应用这些方法时需要加以考虑。首先，并不是基因组里所有的小鼠基因都会在我们的小脑（Cerebellum）样本中表达。判断一个基因的表达是否可检测，可用的阈值有很多。这里我们采用一个非常宽松的标准：如果某个基因在所有样本里加起来的 count 数都不超过 5，那这点数据量也做不了什么分析了。
 
 ```{r filter-lowexpr}
 nrow(se)
 
-# Remove genes/rows that do not have > 5 total counts 
+# 去除所有样本 count 总数 > 5 不成立的基因/行
 se <- se[rowSums(assay(se, "counts")) > 5, ]
 nrow(se)
 ```
 
+::: challenge
+## 练习：哪些类型的基因通过了这一步过滤？
 
-:::::::::::::::::::::::::::::::::::::::  challenge
+上一节课我们讨论过将数据子集化到只保留 mRNA 基因。这里我们则基于一个最低表达水平做了过滤。
 
-## Challenge: What kind of genes survived this filtering?
+1.  各类基因分别有多少个通过了过滤？
+2.  比较使用不同阈值过滤后剩下的基因数量。
+3.  更激进的过滤有何利弊？需要考虑哪些重要因素？
+:::
 
-Last episode we discussed subsetting down to only mRNA genes. Here we subsetted based on a minimal expression level.
-  
-  1. How many of each type of gene survived the filtering?
-  2. Compare the number of genes that survived filtering using different thresholds.
-  3. What are pros and cons of more aggressive filtering? What are important considerations? 
-  
-::::::::::::::::::::::::::::::::::::::::::::::::::
+::: solution
+1.  
 
-::::::::::::::::::::::::::::::::::: solution
-
-1.
 ```{r table-gbkey}
 table(rowData(se)$gbkey)
 ```
 
-2.
+2.  
+
 ```{r filter thresholds}
-nrow(se)  # represents the number of genes using 5 as filtering threshold
+nrow(se)  # 使用 5 作为过滤阈值时剩余的基因数
 length(which(rowSums(assay(se, "counts")) > 10))
 length(which(rowSums(assay(se, "counts")) > 20))
 ```
 
-3.
-Cons: Risk of removing interesting information
-Pros: 
- - Not or lowly expressed genes are unlikely to be biological meaningful.
- - Reduces number of statistical tests (multiple testing).
- - More reliable estimation of mean-variance relationship
- 
-Potential considerations:
- - Is a gene expressed in both groups?
- - How many samples of each group express a gene?
-:::::::::::::::::::::::::::::::::::
+3.  弊端：
 
-## Library size differences
+- 可能会移除掉有意思的信息。
 
-Differences in the total number of reads assigned to genes between samples typically occur for technical reasons. In practice, it means that we can not simply compare a gene's raw read count directly between samples and conclude that a sample with a higher read count also expresses the gene more strongly - the higher count may be caused by an overall higher number of reads in that sample.
-In the rest of this section, we will use the term *library size* to refer to the total number of reads assigned to genes for a sample. First we should compare the library sizes of all samples. 
+好处：
 
-```{r lib-size, fig.alt="Barplot with total count on the y-axis and sample name on the x-axis, with bars colored by the group annotation. The total count varies between approximately 32 and 43 million."}
-# Add in the sum of all counts
+- 不表达或低表达的基因通常没有生物学意义。
+- 减少统计检验数量（缓解多重检验问题）。
+- 更可靠地估计均值-方差关系。
+
+可能需要考虑的问题：
+
+- 这个基因在两组中是否都有表达？
+- 每组中有多少样本表达了该基因？
+:::
+
+## 文库大小的差异
+
+样本之间分配到基因上的总 read 数量的差异，通常源于技术因素。这意味着我们不能直接比较一个基因在两个样本中的原始 read count，并据此得出 count 高的样本表达更强的结论，因为更高的 count 可能仅仅是该样本整体的 read 数量本来就更多。 本节剩余部分中，我们用 *文库大小（library size）* 这个术语指代某个样本中所有分配到基因上的 read 总数。首先我们应该比较所有样本的文库大小。
+
+```{r lib-size, fig.alt="柱状图，y 轴为 total count，x 轴为样本名，柱子按 group 注释着色。total count 在约 3200 万到 4300 万之间。"}
+# 把所有 count 加和加进去
 
 se$libSize <-  colSums(assay(se))
 
-# Plot the libSize by using R's native pipe |>
-# to extract the colData, turn it into a regular
-# data frame then send to ggplot:
+# 用 R 自带的管道符 |> 绘制 libSize：
+# 取出 colData，转成普通 data frame，再交给 ggplot：
 
 colData(se) |>
   as.data.frame() |>
-  ggplot(aes(x = Label, y = libSize / 1e6, fill = Group)) + 
-         geom_bar(stat = "identity") + theme_bw() + 
-         labs(x = "Sample", y = "Total count in millions") + 
+  ggplot(aes(x = Label, y = libSize / 1e6, fill = Group)) +
+         geom_bar(stat = "identity") + theme_bw() +
+         labs(x = "Sample", y = "Total count in millions") +
          theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
 ```
 
+我们需要校正样本间文库大小的差异，避免得出错误结论。在 RNA-seq 数据中，这件事通常分两步完成。首先，我们为每个样本估算一个 *size factor*，作为该样本对应的校正因子，使得用原始 count 除以这些因子之后的数值在样本间更具可比性。然后，将这些 size factor 整合进数据的统计分析中。具体某个分析方法是怎么做这件事的，需要特别留意。有时候需要分析者显式地用 count 去除以 size factor。另一些情况下（比如我们后续要做的差异表达分析），重要的是把它们单独传给分析工具，由工具在统计模型中合理使用。
 
-We need to adjust for the differences in library size between samples, to avoid drawing incorrect conclusions. The way this is typically done for RNA-seq data can be described as a two-step procedure.
-First, we estimate *size factors* - sample-specific correction factors such that if the raw counts were to be divided by these factors, the resulting values would be more comparable across samples.
-Next, these size factors are incorporated into the statistical analysis of the data.
-It is important to pay close attention to how this is done in practice for a given analysis method.
-Sometimes the division of the counts by the size factors needs to be done explicitly by the analyst.
-Other times (as we will see for the differential expression analysis) it is important that they are provided separately to the analysis tool, which will then use them appropriately in the statistical model.
+在 `DESeq2` 中，size factor 通过 `estimateSizeFactors()` 函数计算。该函数估算的 size factor 同时校正了文库大小的差异和样本间 RNA 组成的差异。后者之所以重要，是因为 RNA-seq 数据具有组分性（compositional）。read 总数是固定的，要在所有基因之间分配，如果某一个（或几个）极高表达的基因占据了大量 read，那么其他所有基因获得的 count 就会变得很低。我们现在把 `SummarizedExperiment` 对象转换成 `DESeqDataSet`，因为后者具有存放 size factor 的内部结构。我们还需要告诉它本次实验的主要设计变量，即 sex 和 time：
 
-With `DESeq2`, size factors are calculated using the `estimateSizeFactors()` function.
-The size factors estimated by this function combines an adjustment for differences in library sizes with an adjustment for differences in the RNA composition of the samples.
-The latter is important due to the compositional nature of RNA-seq data.
-There is a fixed number of reads to distribute between the genes, and if a single (or a few) very highly expressed gene consume a large part of the reads, all other genes will consequently receive very low counts. We now switch our `SummarizedExperiment` object over to a `DESeqDataSet` as it has the internal structure to store these size factors. We also need to tell it our main experiment design, which is sex and time: 
-
-```{r est-size-factors, fig.alt="Scatterplot with library size on the x-axis and size factor on the y-axis, showing a high correlation between the two variables."}
+```{r est-size-factors, fig.alt="散点图，x 轴为 library size，y 轴为 size factor，两者之间高度相关。"}
 
 dds <- DESeq2::DESeqDataSet(se, design = ~ sex + time)
 dds <- estimateSizeFactors(dds)
 
-# Plot the size factors against library size
-# and look for any patterns by group:
+# 把 size factor 对 library size 作图，
+# 看看不同 group 之间是否存在某种规律：
 
 ggplot(data.frame(libSize = colSums(assay(dds)),
                   sizeFactor = sizeFactors(dds),
                   Group = dds$Group),
-       aes(x = libSize, y = sizeFactor, col = Group)) + 
-    geom_point(size = 5) + theme_bw() + 
+       aes(x = libSize, y = sizeFactor, col = Group)) +
+    geom_point(size = 5) + theme_bw() +
     labs(x = "Library size", y = "Size factor")
 ```
 
-## Transform data
+## 数据变换
 
-There is a rich literature on methods for exploratory analysis.
-Most of these work best in situations where the variance of the input data (here, each gene) is relatively independent of the average value.
-For read count data such as RNA-seq, this is not the case.
-In fact, the variance increases with the average read count.
+关于探索性分析方法的文献非常丰富。其中大多数方法在输入数据（这里指每个基因）的方差与均值大致独立时表现最佳。而对于像 RNA-seq 这样的 read count 数据，情况并非如此。事实上，方差会随着平均 read count 的增加而增加。
 
-```{r mean-sd-plot-raw, fig.alt="Hexagonal heatmap with the mean count on the x-axis and the standard deviation of the count on the y-axis, showing a generally increasing standard deviation with increasing mean. The density of points is highest for low count values."}
+```{r mean-sd-plot-raw, fig.alt="六边形热图，x 轴为平均 count，y 轴为 count 的标准差，整体上标准差随均值增大而增大。低 count 区域的点最为密集。"}
 meanSdPlot(assay(dds), ranks = FALSE)
 ```
 
-There are two ways around this: either we develop methods specifically adapted to count data, or we adapt (transform) the count data so that the existing methods are applicable.
-Both ways have been explored; however, at the moment the second approach is arguably more widely applied in practice. We can transform our data using DESeq2's variance stabilizing transformation and then verify that it has removed the correlation between average read count and variance.
+要解决这个问题有两条路：要么开发专门针对 count 数据的方法，要么调整（变换）count 数据，让现有方法可以使用。两条路都有人探索，但目前来看，第二种思路在实践中应用更广。我们可以使用 DESeq2 的方差稳定变换（variance stabilizing transformation）对数据做变换，然后验证一下变换是否消除了平均 read count 与方差之间的相关性。
 
-```{r mean-sd-plot-vst, fig.alt="Hexagonal heatmap with the mean variance-stabilized values on the x-axis and the standard deviation of these on the y-axis. The trend is generally flat, with no clear association between the mean and standard deviation."}
+```{r mean-sd-plot-vst, fig.alt="六边形热图，x 轴为方差稳定后的均值，y 轴为对应标准差，整体趋势平坦，均值与标准差之间没有明显关联。"}
 vsd <- DESeq2::vst(dds, blind = TRUE)
 meanSdPlot(assay(vsd), ranks = FALSE)
 ```
 
-## Heatmaps and clustering
+## 热图与聚类
 
-There are many ways to cluster samples based on their similarity of expression patterns. One simple way is to calculate Euclidean distances between all pairs of samples (longer distance = more different) and then display the results with both a branching dendrogram and a heatmap to visualize the distances in color. From this, we infer that the Day 8 samples are more similar to each other than the rest of the samples, although Day 4 and Day 0 do not separate distinctly. Instead, males and females reliably separate.
+基于表达模式的相似性给样本聚类的方法有很多。一个简单的做法是计算所有样本两两之间的欧氏距离（距离越远 = 差异越大），然后用枝状树状图（dendrogram）和热图把距离用颜色可视化出来。从结果可以看出，Day 8 的样本彼此之间比与其他样本更相似，而 Day 4 和 Day 0 之间则没有明显分开。相反，雌雄能够稳定地分开。
 
-```{r heatmap, fig.alt="Heatmap of Euclidean distances between all pairs of samples, with hierarchical cluster dendrogram for both rows and columns. Samples from day 8 cluster separately from samples from days 0 and 4. Within days 0 and 4, the main clustering is instead by sex."}
+```{r heatmap, fig.alt="样本两两间欧氏距离的热图，行列均带层次聚类树状图。Day 8 的样本与 Day 0、Day 4 的样本聚成不同类。在 Day 0 和 Day 4 中，主要按性别聚类。"}
 dst <- dist(t(assay(vsd)))
 colors <- colorRampPalette(brewer.pal(9, "Blues"))(255)
 ComplexHeatmap::Heatmap(
-    as.matrix(dst), 
+    as.matrix(dst),
     col = colors,
     name = "Euclidean\ndistance",
     cluster_rows = hclust(dst),
@@ -200,16 +176,9 @@ ComplexHeatmap::Heatmap(
 
 ## PCA
 
-Principal component analysis is a dimensionality reduction method, which projects the samples into a lower-dimensional space.
-This lower-dimensional representation can be used for visualization, or as the input for other analysis methods.
-The principal components are defined in such a way that they are orthogonal, and that the projection of the samples into the space they span contains as much variance as possible.
-It is an *unsupervised* method in the sense that no external information about the samples (e.g., the treatment condition) is taken into account.
-In the plot below we represent the samples in a two-dimensional principal component space.
-For each of the two dimensions, we indicate the fraction of the total variance that is represented by that component.
-By definition, the first principal component will always represent more of the variance than the subsequent ones.
-The fraction of explained variance is a measure of how much of the 'signal' in the data that is retained when we project the samples from the original, high-dimensional space to the low-dimensional space for visualization.
+主成分分析（PCA）是一种降维方法，它把样本投影到一个更低维的空间。这种低维表示可以用于可视化，也可以作为其他分析方法的输入。主成分的定义满足两个条件：彼此正交，并且样本投影到这些主成分张成的空间后能保留尽可能多的方差。它是一种 *无监督* 方法，不会用到样本的任何外部信息（比如处理条件）。下面这张图把样本表示在前两个主成分构成的二维空间中。对每一个维度，我们标注了它所代表的总方差所占的比例。根据定义，第一主成分总是比后面的主成分代表更多方差。所解释方差的比例衡量了：当我们把样本从原始的高维空间投影到用于可视化的低维空间时，数据中的"信号"被保留了多少。
 
-```{r pca, fig.alt="Scatterplot of samples projected onto the first two principal components, colored by sex and shaped according to the experimental day. The main separation along PC1 is between male and female samples. The main separation along PC2 is between samples from day 8 and samples from days 0 and 4."}
+```{r pca, fig.alt="样本在前两个主成分上的散点图，按性别着色，按实验天数取不同形状。PC1 上的主要分离是雌雄样本之间，PC2 上的主要分离是 Day 8 与 Day 0、Day 4 样本之间。"}
 pcaData <- DESeq2::plotPCA(vsd, intgroup = c("sex", "time"),
                            returnData = TRUE)
 percentVar <- round(100 * attr(pcaData, "percentVar"))
@@ -218,22 +187,21 @@ ggplot(pcaData, aes(x = PC1, y = PC2)) +
     theme_minimal() +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-    coord_fixed() + 
+    coord_fixed() +
     scale_color_manual(values = c(Male = "blue", Female = "red"))
 ```
 
-:::::::::::::::::::::::::::::::::::::::  challenge
+::: challenge
+## 练习：和你的同伴讨论以下两个问题
 
-## Challenge: Discuss the following points with your neighbour
+1.  假设你主要关心的是感染后随时间变化的表达差异（提示：Day0 是感染前）。在下游分析中你需要考虑什么？
 
-1. Assume you are mainly interested in expression changes associated with the time after infection (Reminder Day0 -> before infection). What do you need to consider in downstream analysis?
+2.  设想一个实验设计：你有来自同一个供体（donor）的多个样本。你仍然关注随时间变化的差异，并观察到下面这张 PCA 图。这张 PCA 图说明了什么？
 
-2. Consider an experimental design where you have multiple samples from the same donor. You are still interested in differences by time and observe the following PCA plot. What does this PCA plot suggest?
-
-```{r pca-exercise, eval=TRUE, echo=FALSE, include=TRUE, fig.alt="Scatterplot of samples projected onto the first two principal components, colored by a hypothetical sample ID annotation and shaped according to a hypothetical experimental day annotation. In the plot, samples with the same sample ID tend to cluster together."}
+```{r pca-exercise, eval=TRUE, echo=FALSE, include=TRUE, fig.alt="样本在前两个主成分上的散点图，按一个假设的样本 ID 着色，按一个假设的实验天数取不同形状。图中相同样本 ID 的样本倾向于聚在一起。"}
 vsd_ex <- vsd
 vsd_ex$sample <- vsd_ex$Group
-levels(vsd_ex$sample) <- c("sampleA", "sampleB", "sampleC", 
+levels(vsd_ex$sample) <- c("sampleA", "sampleB", "sampleC",
                               "sampleD", "sampleE", "sampleF")
 vsd_ex$time <- sample(vsd_ex$time)
 
@@ -245,40 +213,30 @@ ggplot(pcaDataEx, aes(x = PC1, y = PC2)) +
     theme_minimal() +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-    coord_fixed() 
+    coord_fixed()
 ```
+:::
 
+::: solution
+1.  这份数据中最大的信号（37% 的方差）与性别相关。既然我们关心的不是与性别相关的随时间变化，我们就需要在下游分析中校正这一点（参见[下一节课](../episodes/05-differential-expression.Rmd)），并在后续探索性下游分析中始终牢记这一点。一种可行的做法是去除性染色体上的基因。
 
+2.  
 
+- 存在很强的供体效应，需要在分析中加以校正。
+- PC1（37% 方差）代表的是什么？看起来像是把样本分成了两个供体组？
+- PC1 和 PC2 与时间没有关联 → 时间在转录上几乎没有效应或效应较弱 → 检查更高阶的主成分（如 PC3、PC4 等）是否与时间相关。
+:::
 
-::::::::::::::::::::::::::::::::::::::::::::::::::
+::: challenge
+## 练习：绘制按文库大小着色的 PCA 图
 
-::::::::::::::::::::::::::::::::::: solution
-1. The major signal in this data (37% variance) is associated with sex. As we are not interested in sex-specific changes over time, we need to adjust for this in downstream analysis (see [next episodes](../episodes/05-differential-expression.Rmd)) and keep it in mind for further exploratory downstream analysis. A possible way to do so is to remove genes on sex chromosomes.
+比较方差稳定变换前后的结果。
 
-2.
- - A strong donor effect, that needs to be accounted for. 
- - What does PC1 (37% variance) represent? Looks like 2 donor groups?
- - No association of PC1 and PC2 with time --> no or weak transcriptional effect of time
-    --> Check association with higher PCs (e.g., PC3,PC4, ..)
- 
-:::::::::::::::::::::::::::::::::::
+*提示：`DESeq2::plotPCA` 的输入需要是 `DESeqTransform` 类的对象。你可以通过 `plotPCA(DESeqTransform(se))` 来变换一个 `SummarizedExperiment` 对象。*
+:::
 
-
-
-:::::::::::::::::::::::::::::::::::::::  challenge
-
-## Challenge: Plot the PCA colored by library sizes. 
-
-Compare before and after variance stabilizing transformation.
-
-*Hint: The `DESeq2::plotPCA` expect an object of the class `DESeqTransform` as input. You can transform a `SummarizedExperiment` object using `plotPCA(DESeqTransform(se))`*
-
-::::::::::::::::::::::::::::::::::::::::::::::::::
-
-::::::::::::::::::::::::::::::::::: solution
-
-```{r pca-lib, fig.alt="Scatterplot of samples projected onto the first two principal components of the variance-stabilized data, colored by library size. The library sizes are between approximately 32.5 and 42.5 million. There is no strong association between the library sizes and the principal components."}
+::: solution
+```{r pca-lib, fig.alt="对方差稳定后的数据做 PCA，样本投影到前两个主成分上的散点图，按文库大小着色。文库大小在约 3250 万到 4250 万之间。文库大小与主成分之间没有明显关联。"}
 pcaDataVst <- DESeq2::plotPCA(vsd, intgroup = c("libSize"),
                               returnData = TRUE)
 percentVar <- round(100 * attr(pcaDataVst, "percentVar"))
@@ -287,12 +245,11 @@ ggplot(pcaDataVst, aes(x = PC1, y = PC2)) +
     theme_minimal() +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-    coord_fixed() + 
+    coord_fixed() +
     scale_color_continuous("Total count in millions", type = "viridis")
 ```
 
-
-```{r pca-lib-vst, fig.alt="Scatterplot of samples projected onto the first two principal components of the count matrix, colored by library size. The library sizes are between approximately 32.5 and 42.5 million. The first principal component is strongly correlated with the library size."}
+```{r pca-lib-vst, fig.alt="对原始 count 矩阵做 PCA，样本投影到前两个主成分上的散点图，按文库大小着色。文库大小在约 3250 万到 4250 万之间。第一主成分与文库大小高度相关。"}
 pcaDataCts <- DESeq2::plotPCA(DESeqTransform(se), intgroup = c("libSize"),
                               returnData = TRUE)
 percentVar <- round(100 * attr(pcaDataCts, "percentVar"))
@@ -301,56 +258,43 @@ ggplot(pcaDataCts, aes(x = PC1, y = PC2)) +
     theme_minimal() +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-    coord_fixed() + 
+    coord_fixed() +
     scale_color_continuous("Total count in millions", type = "viridis")
 ```
+:::
 
+## 交互式探索性数据分析
 
-:::::::::::::::::::::::::::::::::::
+很多时候以交互方式查看 QC 图会很有用，可以直接探索不同的实验因素，或者让没有编程经验的同事也能参与进来给出反馈。RNA-seq 交互式探索性数据分析常用的工具有 [Glimma](https://bioconductor.org/packages/release/bioc/html/Glimma.html) 和 [iSEE](https://bioconductor.org/packages/release/bioc/html/iSEE.html)。
 
-## Interactive exploratory data analysis
-
-Often it is useful to look at QC plots in an interactive way to directly explore different experimental factors or get insides from someone without coding experience.
-Useful tools for interactive exploratory data analysis for RNA-seq are [Glimma](https://bioconductor.org/packages/release/bioc/html/Glimma.html) and [iSEE](https://bioconductor.org/packages/release/bioc/html/iSEE.html)
-
-
-:::::::::::::::::::::::::::::::::::::::  challenge
-
-## Challenge: Interactively explore our data using iSEE 
+::: challenge
+## 练习：用 iSEE 交互式地探索我们的数据
 
 ```{r isee, eval=FALSE}
-## Convert DESeqDataSet object to a SingleCellExperiment object, in order to 
-## be able to store the PCA representation
+## 把 DESeqDataSet 对象转换成 SingleCellExperiment 对象，
+## 这样才能存放 PCA 表示。
 sce <- as(dds, "SingleCellExperiment")
 
-## Add PCA to the 'reducedDim' slot
+## 把 PCA 添加到 'reducedDim' 槽中
 stopifnot(rownames(pcaData) == colnames(sce))
 reducedDim(sce, "PCA") <- as.matrix(pcaData[, c("PC1", "PC2")])
 
-## Add variance-stabilized data as a new assay
+## 把方差稳定后的数据作为新的 assay 加入
 stopifnot(colnames(vsd) == colnames(sce))
 assay(sce, "vsd") <- assay(vsd)
 
 app <- iSEE(sce)
 shiny::runApp(app)
 ```
+:::
 
-
-::::::::::::::::::::::::::::::::::::::::::::::::::
-
-
-## Session info
+## 会话信息
 
 ```{r session-info}
 sessionInfo()
 ```
 
-:::::::::::::::::::::::::::::::::::::::: keypoints
-
-- Exploratory analysis is essential for quality control and to detect potential problems with a data set. 
-- Different classes of exploratory analysis methods expect differently preprocessed data. The most commonly used methods expect counts to be normalized and log-transformed (or similar- more sensitive/sophisticated), to be closer to homoskedastic. Other methods work directly on the raw counts.  
-
-
-::::::::::::::::::::::::::::::::::::::::::::::::::
-
-
+::: keypoints
+- 探索性分析对于质量控制以及发现数据集中潜在问题至关重要。
+- 不同类别的探索性分析方法对数据预处理的要求各不相同。最常用的一类方法要求 count 经过归一化和 log 变换（或其他更敏感、更精细的类似变换），使数据更接近同方差（homoskedastic）。也有一些方法可以直接处理原始 count。
+:::
