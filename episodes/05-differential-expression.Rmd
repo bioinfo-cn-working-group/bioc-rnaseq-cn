@@ -1,6 +1,6 @@
 ---
 source: Rmd
-title: Differential expression analysis
+title: 差异表达分析
 teaching: 60
 exercises: 45
 ---
@@ -11,35 +11,34 @@ source("download_data.R")
 
 ::::::::::::::::::::::::::::::::::::::: objectives
 
-- Explain the steps involved in a differential expression analysis.
-- Explain how to perform these steps in R, using DESeq2.
+- 解释差异表达分析中涉及的步骤。
+- 解释如何在 R 中使用 DESeq2 执行这些步骤。
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 :::::::::::::::::::::::::::::::::::::::: questions
 
-- What are the steps performed in a typical differential expression analysis? 
-- How does one interpret the output of DESeq2?
+- 典型的差异表达分析执行哪些步骤？
+- 如何解释 DESeq2 的输出？
 
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
 
-## Differential expression inference
+## 差异表达推断
 
-A major goal of RNA-seq data analysis is the quantification and statistical inference of systematic changes between experimental groups or conditions (e.g., treatment vs. control, timepoints, tissues). This is typically performed by identifying genes with differential expression pattern using between- and within-condition variability and thus requires biological replicates (multiple sample of the same condition).
-Multiple software packages exist to perform differential expression analysis. Comparative studies have shown some concordance of differentially expressed (DE) genes, but also variability between tools with no tool consistently outperforming all others (see [Soneson and Delorenzi, 2013](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-14-91)). 
-In the following we will explain and conduct differential expression analysis using the [DESeq2](https://bioconductor.org/packages/release/bioc/html/DESeq2.html) 
-software package. The [edgeR](https://bioconductor.org/packages/release/bioc/html/edgeR.html) package implements similar methods following the same main assumptions about count data. Both packages show a general good and stable performance with comparable results.  
+RNA-seq 数据分析的一个主要目标是量化和统计推断实验组或条件之间的系统性变化（例如，处理组与对照组、时间点、组织）。这通常通过利用条件间和条件内变异性来识别具有差异表达模式的基因来执行，因此需要生物学重复（同一条件的多个样本）。
+存在多个软件包用于执行差异表达分析。比较研究显示不同表达（DE）基因存在一些一致性，但工具之间也存在变异性，没有一种工具始终优于所有其他工具（参见 [Soneson and Delorenzi, 2013](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-14-91)）。
+在下文中，我们将使用 [DESeq2](https://bioconductor.org/packages/release/bioc/html/DESeq2.html) 软件包解释和执行差异表达分析。[edgeR](https://bioconductor.org/packages/release/bioc/html/edgeR.html) 包实现了类似的方法，遵循关于计数数据的相同主要假设。两个包都表现出良好且稳定的性能，结果具有可比性。
 
-## The DESeqDataSet
+## DESeqDataSet
 
-To run `DESeq2` we need to represent our count data as object of the `DESeqDataSet` class.
-The `DESeqDataSet` is an extension of the `SummarizedExperiment` class (see section [Importing and annotating quantified data into R](../episodes/03-import-annotate.Rmd) ) that stores a *design formula* in addition to the count assay(s) and feature (here gene) and sample metadata.
-The *design formula* expresses the variables which will be used in modeling. These are typically the variable of interest (group variable) and other variables you want to account for (e.g., batch effect variables). A detailed explanation of *design formulas* and related *design matrices* will follow in the section about [extra exploration of design matrices](../episodes/06-extra-design.Rmd). Objects of the `DESeqDataSet` class can be build from [count matrices](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#countmat), [SummarizedExperiment objects](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#se), [transcript abundance files](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#tximport) or [htseq count files](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#htseq).
+要运行 `DESeq2`，我们需要将计数数据表示为 `DESeqDataSet` 类的对象。
+`DESeqDataSet` 是 `SummarizedExperiment` 类的扩展（参见 [导入和注释量化数据到 R](../episodes/03-import-annotate.Rmd) 部分），除了计数分析和特征（此处为基因）及样本元数据外，还存储*设计公式*。
+*设计公式*表示将在建模中使用的变量。这些通常是感兴趣的变量（分组变量）和您想要考虑的其他变量（例如，批次效应变量）。关于*设计公式*和相关*设计矩阵*的详细解释将在 [设计矩阵的额外探索](../episodes/06-extra-design.Rmd) 部分中介绍。`DESeqDataSet` 类的对象可以从[计数矩阵](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#countmat)、[SummarizedExperiment 对象](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#se)、[转录本丰度文件](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#tximport)或 [htseq 计数文件](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#htseq)构建。
 
-### Load packages
+### 加载包
 
 ```{r load-pkg}
 suppressPackageStartupMessages({
@@ -53,18 +52,18 @@ suppressPackageStartupMessages({
 })
 ```
 
-### Load data
+### 加载数据
 
-Let's load in our `SummarizedExperiment` object again. In the last episode for quality control exploration, we removed ~35% genes that had 5 or fewer counts because they had too little information in them. For DESeq2 statistical analysis, we do not technically have to remove these genes because by default it will do some independent filtering, but it can reduce the memory size of the `DESeqDataSet` object resulting in faster computation. Plus, we do not want these genes cluttering up some of the visualizations. 
+让我们再次加载我们的 `SummarizedExperiment` 对象。在上一集的质量控制探索中，我们移除了约 35% 的计数为 5 或更少的基因，因为它们包含的信息太少。对于 DESeq2 统计分析，从技术上讲我们不必移除这些基因，因为默认情况下它会进行一些独立过滤，但这可以减少 `DESeqDataSet` 对象的内存大小，从而加快计算速度。另外，我们不希望这些基因干扰某些可视化。
 
 ```{r read-se}
 se <- readRDS("data/GSE96870_se.rds")
 se <- se[rowSums(assay(se, "counts")) > 5, ]
 ```
 
-### Create DESeqDataSet
+### 创建 DESeqDataSet
 
-The design matrix we will use in this example is `~ sex + time`. This will allow us test the difference between males and females (averaged over time point) and the difference between day 0, 4 and 8 (averaged over males and females). If we wanted to test other comparisons (e.g., Female.Day8 vs. Female.Day0 and also Male.Day8 vs. Male.Day0) we could use a different design matrix to more easily extract those pairwise comparisons. 
+我们在此示例中使用的设计矩阵是 `~ sex + time`。这将允许我们测试雄性和雌性之间的差异（在时间点上取平均值）以及第 0、4 和 8 天之间的差异（在雄性和雌性上取平均值）。如果我们想测试其他比较（例如，Female.Day8 与 Female.Day0 以及 Male.Day8 与 Male.Day0），我们可以使用不同的设计矩阵来更容易地提取这些成对比较。
 
 ```{r make-deseqdataset}
 dds <- DESeq2::DESeqDataSet(se,
@@ -73,13 +72,13 @@ dds <- DESeq2::DESeqDataSet(se,
 
 
 ::::::::::::::::::::::::::::::::::::: instructor
-The function to generate a `DESeqDataSet` needs to be adapted depending on the input type, e.g, 
+生成 `DESeqDataSet` 的函数需要根据输入类型进行调整，例如：
 
 ```{r make-deseqdataset-options, eval=FALSE}
-#From SummarizedExperiment object
+# 从 SummarizedExperiment 对象
 ddsSE <- DESeqDataSet(se, design = ~ sex + time)
 
-#From count matrix
+# 从计数矩阵
 dds <- DESeqDataSetFromMatrix(countData = assays(se)$counts,
                               colData = colData(se),
                               design = ~ sex + time)
@@ -88,15 +87,15 @@ dds <- DESeqDataSetFromMatrix(countData = assays(se)$counts,
 :::::::::::::::::::::::::::::::::::::::::::::::::
 
 
-## Normalization
+## 标准化
 
- `DESeq2` and `edgeR` make the following assumptions:
+`DESeq2` 和 `edgeR` 做出以下假设：
 
-- most genes are not differentially expressed
-- the probability of a read mapping to a specific gene is the same for all samples within the same group
+- 大多数基因不是差异表达的
+- 读段映射到特定基因的概率对于同一组内的所有样本是相同的
 
-As shown in the [previous section](../episodes/04-exploratory-qc.Rmd) on exploratory data analysis the total counts of a sample (even from the same condition) depends on the library size (total number of reads sequenced). To compare the variability of counts from a specific gene between and within groups we first need to account for library sizes and compositional effects. 
-Recall the `estimateSizeFactors()` function from the previous section:
+如[前一节](../episodes/04-exploratory-qc.Rmd)关于探索性数据分析所示，样本的总计数（即使来自同一条件）取决于文库大小（测序的读段总数）。为了比较特定基因在组间和组内的计数变异性，我们首先需要考虑文库大小和组成效应。
+回想一下前一节中的 `estimateSizeFactors()` 函数：
 
 ```{r estimate-sizefactors}
 dds <- estimateSizeFactors(dds)
@@ -104,39 +103,39 @@ dds <- estimateSizeFactors(dds)
 
 ::::::::::::::::::::::::::::::::::::: instructor
 
-*DESeq2* uses the __"Relative Log Expression” (RLE)__ method to calculate sample-wise *size factors* tĥat account for read depth and library composition.
-*edgeR* uses the __“Trimmed Mean of M-Values” (TMM)__ method to account for library size differences and compositional effects. *edgeR*'s *normalization factors* and *DESeq2*'s *size factors* yield similar results, but are not equivalent theoretical parameters.
+*DESeq2* 使用 __"相对对数表达"（RLE）__ 方法计算样本级别的*大小因子*，以考虑读段深度和文库组成。
+*edgeR* 使用 __"修剪均值 M 值"（TMM）__ 方法来考虑文库大小差异和组成效应。*edgeR* 的*标准化因子*和 *DESeq2* 的*大小因子*产生相似的结果，但不是等效的理论参数。
 
 :::::::::::::::::::::::::::::::::::::::::::::::::
 
 
-## Statistical modeling
+## 统计建模
 
-`DESeq2` and `edgeR` model RNA-seq counts as __negative binomial__ distribution to account for a limited number of replicates per group, a mean-variance dependency (see [exploratory data analysis](../episodes/04-exploratory-qc.Rmd)) and a skewed count distribution. 
+`DESeq2` 和 `edgeR` 将 RNA-seq 计数建模为 __负二项分布__，以考虑每组有限数量的重复、均值-方差依赖性（参见[探索性数据分析](../episodes/04-exploratory-qc.Rmd)）和偏斜的计数分布。
 
-### Dispersion
+### 离散度
 
-The within-group variance of the counts for a gene following a negative binomial distribution with mean $\mu$ can be modeled as:
+对于遵循均值为 $\mu$ 的负二项分布的基因，其计数的组内方差可以建模为：
 
 $var = \mu + \theta \mu^2$
 
-$\theta$ represents the gene-specific __dispersion__, a measure of variability or spread in the data. As a second step, we need to estimate gene-wise dispersions to get the expected within-group variance and test for group differences. Good dispersion estimates are challenging with a few samples per group only. Thus, information from genes with similar expression pattern are "borrowed". Gene-wise dispersion estimates are *shrinked* towards center values of the observed distribution of dispersions. With `DESeq2` we can get dispersion estimates using the `estimateDispersions()` function.
-We can visualize the effect of *shrinkage* using `plotDispEsts()`:
+$\theta$ 代表基因特异性 __离散度__，是数据变异性或离散程度的度量。作为第二步，我们需要估计基因级别的离散度以获得预期的组内方差并测试组间差异。只有每组少量样本时，获得良好的离散度估计具有挑战性。因此，"借用"了来自具有相似表达模式的基因的信息。基因级别的离散度估计被*收缩*向观察到的离散度分布的中心值。使用 `DESeq2`，我们可以使用 `estimateDispersions()` 函数获得离散度估计。
+我们可以使用 `plotDispEsts()` 可视化*收缩*的效果：
 
 ```{r estimate-dispersions, fig.alt="Scatterplot with the mean of normalized counts on the x-axis and the dispersion on the y-axis. The plot shows black dots corresponding to gene-wise estimates of the dispersion, a red line corresponding to the fitted trend, and blue dots corresponding to the final dispersion estimates. There is a general trend of decreasing dispersion with increasing mean normalized counts."}
 dds <- estimateDispersions(dds)
 plotDispEsts(dds)
 ```
 
-### Testing
+### 测试
 
-We can use the `nbinomWaldTest()`function of `DESeq2` to fit a *generalized linear model (GLM)* and compute *log2 fold changes* (synonymous with "GLM coefficients", "beta coefficients" or "effect size") corresponding to the variables of the *design matrix*. The *design matrix* is directly related to the *design formula* and automatically derived from it. Assume a design formula with one variable (`~ treatment`) and two factor levels (treatment and control). The mean expression $\mu_{j}$ of a specific gene in sample $j$ will be modeled as following:
+我们可以使用 `DESeq2` 的 `nbinomWaldTest()` 函数拟合*广义线性模型（GLM）*并计算对应于*设计矩阵*变量的 *log2 倍数变化*（与 "GLM 系数"、"beta 系数" 或 "效应大小" 同义）。*设计矩阵*直接与*设计公式*相关并从中自动推导。假设设计公式有一个变量（`~ treatment`）和两个因子水平（treatment 和 control）。样本 $j$ 中特定基因的均值表达 $\mu_{j}$ 将按以下方式建模：
 
-$log(μ_j) = β_0 + x_j β_T$,
+$log(μ_j) = β_0 + x_j β_T$，
 
- with $β_T$ corresponding to the log2 fold change of the treatment groups, $x_j$ = 1, if $j$ belongs to the treatment group and $x_j$ = 0, if $j$ belongs to the control group. 
+其中 $β_T$ 对应于处理组的 log2 倍数变化，$x_j$ = 1（如果 $j$ 属于处理组），$x_j$ = 0（如果 $j$ 属于对照组）。
 
-Finally, the estimated log2 fold changes are scaled by their standard error and tested for being significantly different from 0 using the *Wald test*. 
+最后，估计的 log2 倍数变化通过其标准误差进行缩放，并使用 *Wald 检验*测试是否显著不同于 0。
 
 
 ```{r wald-test}
@@ -145,9 +144,9 @@ dds <- nbinomWaldTest(dds)
 
 
 ::::::::::::::::::::::::::::::::::::: callout
-### Note
+### 注意
 
-Standard differential expression analysis as performed above is wrapped into a single function, `DESeq()`. Running the first code chunk is equivalent to running the second one:
+上面执行的标准差异表达分析被包装在单个函数 `DESeq()` 中。运行第一个代码块等同于运行第二个：
 
 ```{r deseq, eval=FALSE, echo=TRUE }
 dds <- DESeq(dds)
@@ -163,32 +162,32 @@ dds <- nbinomWaldTest(dds)
 
 
 
-## Explore results for specific contrasts
+## 探索特定对比的结果
 
-The `results()` function can be used to extract gene-wise test statistics, such as log2 fold changes and (adjusted) p-values. The comparison of interest can be defined using contrasts, which are linear combinations of the model coefficients (equivalent to combinations of columns within the *design matrix*) and thus directly related to the design formula. A detailed explanation of design matrices and how to use them to specify different contrasts of interest can be found in the section on the [exploration of design matrices](../episodes/06-extra-design.Rmd). In the `results()` function a contrast can be represented by the variable of interest (reference variable) and the related level to compare using the `contrast` argument. By default the reference variable will be the __last variable__ of the design formula, the *reference level* will be the first factor level and the *last level* will be used for comparison. You can also explicitly specify a contrast by the `name` argument of the `results()` function. Names of all available contrasts can be accessed using `resultsNames()`.
+`results()` 函数可用于提取基因级别的测试统计量，如 log2 倍数变化和（调整后的）p 值。感兴趣的比较可以使用对比来定义，对比是模型系数的线性组合（等同于*设计矩阵*中列的组合），因此直接与设计公式相关。关于设计矩阵以及如何使用它们来指定不同感兴趣对比的详细解释可以在[设计矩阵的探索](../episodes/06-extra-design.Rmd)部分找到。在 `results()` 函数中，对比可以通过感兴趣的变量（参考变量）和使用 `contrast` 参数进行比较的相关水平来表示。默认情况下，参考变量将是设计公式的 __最后一个变量__，*参考水平*将是第一个因子水平，*最后一个水平*将用于比较。您还可以通过 `results()` 函数的 `name` 参数显式指定对比。所有可用对比的名称可以使用 `resultsNames()` 访问。
 
 
 ::::::::::::::::::::::::::::::::::::: challenge 
 
-What will be the default __contrast__, __reference level__ and __"last level"__ for comparisons when running `results(dds)` for the example used in this lesson?
+对于本课程中使用的示例，运行 `results(dds)` 时，将是什么默认的 __对比__、 __参考水平__ 和 __"最后一个水平"__？
 
-*Hint: Check the design formula used to build the object.*
+*提示：检查用于构建对象的设计公式。*
 
 :::::::::::::::::::::::: solution 
 
-In the lesson example the last variable of the design formula is `time`. 
-The __reference level__ (first in alphabetical order) is `Day0` and the __last level__ is `Day8` 
+在课程示例中，设计公式的最后一个变量是 `time`。
+__参考水平__（按字母顺序排列的第一个）是 `Day0`，__最后一个水平__ 是 `Day8`
 
 ```{r check-time-levels}
 levels(dds$time)
 ```
 
-No worries, if you had difficulties to identify the default contrast the output of the `results()` function explicitly states the contrast it is referring to (see below)!
+不用担心，如果您难以识别默认对比，`results()` 函数的输出会明确说明它所指的对比（见下文）！
 
 :::::::::::::::::::::::::::::::::
 ::::::::::::::::::::::::::::::::::::::::::::::::
 
-To explore the output of the `results()` function we can use the `summary()` function and order results by significance (p-value). Here we assume that we are interested in changes over `time` ("variable of interest"), more specifically genes with differential expression between `Day0` ("reference level") and `Day8` ("level to compare"). The model we used included the `sex` variable (see above). Thus our results will be "corrected" for sex-related differences.
+要探索 `results()` 函数的输出，我们可以使用 `summary()` 函数并按显著性（p 值）对结果进行排序。这里我们假设我们对 `time` 上的变化（"感兴趣的变量"）感兴趣，更具体地说是 `Day0`（"参考水平"）和 `Day8`（"要比较的水平"）之间差异表达的基因。我们使用的模型包括 `sex` 变量（见上文）。因此，我们的结果将对性别相关差异进行"校正"。
 
 
 ```{r res-time}
@@ -200,8 +199,8 @@ head(resTime[order(resTime$pvalue), ])
 ```
 
 ::::::::::::::::::::::::::::::::::::: instructor
-Both of the below ways of specifying the contrast are essentially equivalent.
-The `name` parameter can be accessed using `resultsNames()`.
+下面两种指定对比的方式本质上是等效的。
+`name` 参数可以使用 `resultsNames()` 访问。
 
 ```{r res-time-options}
 resTime <- results(dds, contrast = c("time", "Day8", "Day0"))
@@ -213,9 +212,9 @@ resTime <- results(dds, name = "time_Day8_vs_Day0")
 
 ::::::::::::::::::::::::::::::::::::: challenge 
 
-Explore the DE genes between males and females independent of time.
+探索雄性和雌性之间与时间无关的差异表达基因。
 
-*Hint: You don't need to fit the GLM again. Use `resultsNames()` to get the correct contrast.*
+*提示：您不需要再次拟合 GLM。使用 `resultsNames()` 获取正确的对比。*
 
 :::::::::::::::::::::::: solution 
 
@@ -233,38 +232,37 @@ head(resSex[order(resSex$pvalue), ])
 
 ::::::::::::::::::::::::::::::::::::: callout
 
-### Multiple testing correction
+### 多重检验校正
 
-Due to the high number of tests (one per gene) our DE results will contain a substantial number of __false positives__. For example, if we tested 20,000 genes at a threshold of $\alpha = 0.05$ we would expect 1,000 significant DE genes with no differential expression.
+由于测试数量众多（每个基因一个），我们的差异表达结果将包含大量 __假阳性__。例如，如果我们在 $\alpha = 0.05$ 的阈值下测试了 20,000 个基因，我们预计在没有差异表达的情况下会有 1,000 个显著的差异表达基因。
 
-To account for this expected high number of false positives, we can correct our results for __multiple testing__. By default `DESeq2` uses the [Benjamini-Hochberg procedure](https://link.springer.com/referenceworkentry/10.1007/978-1-4419-9863-7_1215)
-to calculate __adjusted p-values__ (padj) for DE results.
+为了考虑这种预期的高假阳性数量，我们可以对结果进行 __多重检验__ 校正。默认情况下，`DESeq2` 使用 [Benjamini-Hochberg 程序](https://link.springer.com/referenceworkentry/10.1007/978-1-4419-9863-7_1215)来计算差异表达结果的 __调整后 p 值__（padj）。
 
 :::::::::::::::::::::::::::::::::::::::::::::::::
 
 
-## Independent Filtering and log-fold shrinkage
+## 独立过滤和 log 倍数收缩
 
-We can visualize the results in many ways. A good check is to explore the relationship between *log2fold changes*, *significant DE genes* and the *genes mean count*.
-`DESeq2` provides a useful function to do so, `plotMA()`.
+我们可以通过多种方式可视化结果。一个好的检查是探索 *log2 倍数变化*、*显著差异表达基因*和*基因均值计数*之间的关系。
+`DESeq2` 提供了一个有用的函数来执行此操作，`plotMA()`。
 
 ```{r plot-ma, fig.alt="MA plot showing the mean normalized counts on the x-axis and the log fold change on the y-axis. Significantly differentially expressed genes are colored in blue. The range of log fold changes is larger for low values of the mean normalized counts."}
 plotMA(resTime)
 ```
 
-We can see that genes with a low mean count tend to have larger log fold changes.
-This is caused by counts from lowly expressed genes tending to be very noisy. 
-We can *shrink* the log fold changes of these genes with low mean and high dispersion, as they contain little information.
+我们可以看到，均值计数较低的基因往往具有较大的 log 倍数变化。
+这是由于低表达基因的计数往往非常嘈杂。
+我们可以*收缩*这些低均值和高离散度基因的 log 倍数变化，因为它们包含的信息很少。
 
 ```{r res-time-lfc, fig.alt="MA plot showing the mean normalized counts on the x-axis and the shrunken log fold change on the y-axis. Significantly differentially expressed genes are colored in blue. Most log fold changes for low mean normalized counts have been shrunken to be close to zero."}
 resTimeLfc <- lfcShrink(dds, coef = "time_Day8_vs_Day0", res = resTime)
 plotMA(resTimeLfc)
 ```
-Shrinkage of log fold changes is useful for visualization and ranking of genes, but for result exploration typically the `independentFiltering` argument is used to remove lowly expressed genes.
+Log 倍数变化的收缩对于可视化和基因排名很有用，但对于结果探索，通常使用 `independentFiltering` 参数来移除低表达基因。
 
 ::::::::::::::::::::::::::::::::::::: challenge 
 
-By default `independentFiltering` is set to `TRUE`. What happens without filtering lowly expressed genes? Use the `summary()` function to compare the results. Most of the lowly expressed genes are not significantly differential expressed (blue in the above MA plots). What could cause the difference in the results then?
+默认情况下 `independentFiltering` 设置为 `TRUE`。不过滤低表达基因会发生什么？使用 `summary()` 函数比较结果。大多数低表达基因没有显著差异表达（在上面的 MA 图中为蓝色）。那么什么可能导致结果的差异？
 
 :::::::::::::::::::::::: solution 
 
@@ -276,37 +274,37 @@ summary(resTime)
 summary(resTimeNotFiltered)
 ```
 
-Genes with very low counts are not likely to see significant differences typically due to high dispersion. Filtering of lowly expressed genes thus increased detection power at the same experiment-wide false positive rate. 
+计数非常低的基因由于离散度高，通常不太可能看到显著差异。因此，在相同的实验范围内假阳性率下，过滤低表达基因提高了检测能力。
 
 :::::::::::::::::::::::::::::::::
 ::::::::::::::::::::::::::::::::::::::::::::::::
 
 
-## Visualize selected set of genes
+## 可视化选定的基因集
 
-The amount of DE genes can be overwhelming and a ranked list of genes can still be hard to interpret with regards to an experimental question. Visualizing gene expression can help to detect expression pattern or group of genes with related functions. We will perform systematic detection of over represented groups of genes in a [later section](../episodes/07-gene-set-analysis.Rmd). Before this visualization can already help us to get a good intuition about what to expect.
+差异表达基因的数量可能令人难以置信，基因的排序列表在解释实验问题方面仍然可能很困难。可视化基因表达可以帮助检测表达模式或具有相关功能的基因组。我们将在[后面的部分](../episodes/07-gene-set-analysis.Rmd)中执行过度代表基因组的系统检测。在此之前，可视化已经可以帮助我们对预期内容有良好的直觉。
 
-We will use transformed data (see [exploratory data analysis](../episodes/04-exploratory-qc.Rmd)) and the top differentially expressed genes for visualization. A heatmap can reveal expression pattern across sample groups (columns) and automatically orders genes (rows) according to their similarity. 
+我们将使用转换后的数据（参见[探索性数据分析](../episodes/04-exploratory-qc.Rmd)）和顶部差异表达基因进行可视化。热图可以揭示样本组（列）之间的表达模式，并根据相似性自动对基因（行）进行排序。
 
 
 ```{r heatmap-time, fig.alt="Heatmap showing the vsd-transformed expression levels for the ten most significantly differentially expressed genes over time, in all the samples."}
-# Transform counts
+# 转换计数
 vsd <- vst(dds, blind = TRUE)
 
-# Get top DE genes
+# 获取顶部差异表达基因
 genes <- resTime[order(resTime$pvalue), ] |>
          head(10) |>
          rownames()
 heatmapData <- assay(vsd)[genes, ]
 
-# Scale counts for visualization
+# 为可视化缩放计数
 heatmapData <- t(scale(t(heatmapData)))
 
-# Add annotation
+# 添加注释
 heatmapColAnnot <- data.frame(colData(vsd)[, c("time", "sex")])
 heatmapColAnnot <- HeatmapAnnotation(df = heatmapColAnnot)
 
-# Plot as heatmap
+# 绘制热图
 ComplexHeatmap::Heatmap(heatmapData,
                         top_annotation = heatmapColAnnot,
                         cluster_rows = TRUE, cluster_columns = FALSE)
@@ -314,14 +312,14 @@ ComplexHeatmap::Heatmap(heatmapData,
 
 ::::::::::::::::::::::::::::::::::::: challenge 
 
-Check the heatmap and top DE genes. Do you find something expected/unexpected in terms of change across all 3 time points?
+检查热图和顶部差异表达基因。您是否发现跨所有 3 个时间点的变化中有什么预期/意外的？
 
 
 ::::::::::::::::::::::::::::::::::::::::::::::::
 
-## Output results
+## 输出结果
 
-We may want to to output our results out of R to have a stand-alone file. The format of `resTime` only has the gene symbols as rownames, so let us join the gene annotation information, and then write out as .csv file:
+我们可能希望将结果输出到 R 之外以获得独立文件。`resTime` 的格式只有基因符号作为行名，因此让我们连接基因注释信息，然后写入 .csv 文件：
 
 ```{r save-results, eval=FALSE}
 head(as.data.frame(resTime))
@@ -338,10 +336,24 @@ write.csv(temp, file = "output/Day8vsDay0.csv")
 
 :::::::::::::::::::::::::::::::::::::::: keypoints
 
-- With DESeq2, the main steps of a differential expression analysis (size factor estimation, dispersion estimation, calculation of test statistics) are wrapped in a single function: DESeq().
-- Independent filtering of lowly expressed genes is often beneficial. 
+- 使用 DESeq2，差异表达分析的主要步骤（大小因子估计、离散度估计、测试统计量计算）被包装在单个函数中：DESeq()。
+- 独立过滤低表达基因通常是有益的。
 
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
+---
 
+### 译者注
+
+在阅读与应用本教程时，以下要点有助于更准确地理解分析思路与结果含义：
+
+- **设计公式（Design Formula）与模型解释**：`~ sex + time` 采用的是加性模型，估计的是在控制性别后的时间主效应，以及在控制时间后的性别主效应。若要直接比较“Day8 vs Day0 within Female/Male”，需要引入交互项（例如 `~ sex + time + sex:time`）并使用对应 `resultsNames()` 中的系数名称提取对比。
+- **对比（Contrast）指定方式**：`contrast = c("time", "Day8", "Day0")` 与 `name = "time_Day8_vs_Day0"` 通常等价，但前提是模型中确实包含该系数。使用 `resultsNames(dds)` 可避免因因子水平顺序或模型设定不同而指定错误。
+- **独立过滤（Independent Filtering）**：默认开启的独立过滤会移除低均值计数基因，以提高整体检测功效（power）。这属于多重检验框架下的预处理策略，不等同于随意筛选基因；关闭后显著基因数量常会减少，主要因为低信息基因稀释了整体检验效能。
+- **Wald 检验与调整 p 值（padj）**：Wald 检验评估系数是否显著偏离 0，再结合 Benjamini-Hochberg（BH）FDR 校正得到 `padj`。实际解读应以 `padj` 为主，避免仅依赖原始 p 值造成假阳性膨胀。
+- **log2FC 收缩（Shrinkage）的用途**：`lfcShrink()` 主要用于可视化与基因排序，可抑制低计数基因的极端 fold change 噪声。注意不同 shrinkage estimator（如 `apeglm`, `ashr`, `normal`）适用场景略有差异；若用于正式差异表达筛选，仍应结合 `padj` 与效应量阈值，而非仅看收缩后 log2FC。
+- **MA 图（MA Plot）解读**：横轴为平均表达量，纵轴为 log2FC；低表达区域波动更大是常见现象。显著基因在高表达区更稳定，若低表达区出现大量“显著点”，应检查过滤策略与模型设定是否合理。
+- **对比概念区分**：`results()` 中的“contrast”是统计模型系数的线性组合，用于定义组间比较；而日常语境中的“对照组（control）”是实验设计术语。两者相关但不等价，理解差异有助于正确选择 `contrast` 或 `name`。
+
+以上补充旨在帮助读者在复现实验结果时，更清晰地把握建模假设、参数选择与结果解释之间的关系。
