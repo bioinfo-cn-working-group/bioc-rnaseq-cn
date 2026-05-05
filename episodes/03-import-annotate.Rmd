@@ -20,18 +20,18 @@ source("download_data.R")
 ```
 
 ::::::::::::::::::::::::::::::::::::::: objectives
--   Learn how to import the quantifications into a SummarizedExperiment object.
--   Learn how to add additional gene annotations to the object.
+-   学习如何将定量结果导入到 SummarizedExperiment 对象中。
+-   了解如何向对象添加额外的基因注释。
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 :::::::::::::::::::::::::::::::::::::::: questions
--   How can one import quantified gene expression data into an object suitable for downstream statistical analysis in R?
--   What types of gene identifiers are typically used, and how are mappings between them done?
+-   如何将定量后的基因表达数据导入到适合在 R 语言中进行下游统计分析的对象中？
+-   通常使用哪些类型的基因标识符，它们之间的映射是如何完成的？
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
-## Load packages
+## 加载包
 
-In this episode we will use some functions from add-on R packages. In order to use them, we need to load them from our `library`:
+在本章节中，我们将使用一些来自附加 R 包的函数。为了能够使用它们，我们需要从我们的 `library` 中加载这些包:
 
 ```{r load-pkg, purl=TRUE}
 suppressPackageStartupMessages({
@@ -42,15 +42,13 @@ suppressPackageStartupMessages({
 })
 ```
 
-If you get any error messages about `there is no package called 'XXXX'` it means you have not installed the package/s yet for this version of R. See the bottom of the [Summary and Setup](https://carpentries-incubator.github.io/bioc-rnaseq/index.html) to install all the necessary packages for this workshop. If you have to install, remember to re-run the `library` commands above to load them. 
+如果你看到类似 `there is no package called 'XXXX'` 的报错信息，意味着你还没有为当前 R 版本安装 `XXXX` 这个 R 包。请查看 [Summary and Setup](https://carpentries-incubator.github.io/bioc-rnaseq/index.html) 的底部来安装所有在此研讨中必要的 R 包。安装后，请记得重新运行上面的 `library` 命令来加载它们。
 
-## Load data
+## 加载数据
 
-In the last episode, we used R to download 4 files from the internet and saved them on our computer. But we do not have these files loaded into R yet so that we can work with them. The original experimental design in [Blackmore et al. 2017](https://pubmed.ncbi.nlm.nih.gov/28696309/) was fairly complex: 8 week old male and female C57BL/6 mice were collected at Day 0 (before influenza infection), Day 4 and Day 8 after influenza infection. From each mouse, cerebellum and spinal cord tissues were taken for RNA-seq. There were originally 4 mice per 'Sex x Time x Tissue' group, but a few were lost along the way resulting in a total of 45 samples. For this workshop, we are going to simplify the analysis by only using the 22 cerebellum samples. Expression quantification was done using STAR to align to the mouse genome and then counting reads that map to genes. In addition to the counts per gene per sample, we also need information on which sample belongs to which Sex/Time point/Replicate. And for the genes, it is helpful to have extra information called annotation.
-Let's read in the data files that we downloaded in the last episode and start to explore them:
+在上一章节中，我们使用 R 语言从网络上下载并保存了 4 个文件到我们的电脑上。但我们没有加载到 R 中以便使用。[Blackmore et al. 2017](https://pubmed.ncbi.nlm.nih.gov/28696309/) 中的原始实验设计相当复杂：在第 0 天（流感感染前）、流感感染后第 4 天和第 8 天，收集了 8 周龄的雄性和雌性 C57BL/6 小鼠。从每只小鼠中取出小脑和脊髓组织进行 RNA 测序。最初每个“性别×时间×组织”组有 4 只小鼠，但过程中损失了几只，最终共获得 45 个样本。本次研讨中，我们将简化分析，仅使用 22 个小脑样本进行。表达定量采用 STAR 比对小鼠基因组，并统计映射到基因的读数。除了每个样本中各基因的计数数据外，我们还需要样本对应的性别/时间点/重复分组信息。对于基因数据，获取额外信息（称为**注释**）将大有裨益。现在让我们读取上一环节下载的数据文件，并开始探索：
 
-
-### Counts
+### 计数
 
 ```{r read-counts, purl=TRUE}
 counts <- read.csv("data/GSE96870_counts_cerebellum.csv", 
@@ -59,11 +57,11 @@ dim(counts)
 # View(counts)
 ```
 
-Genes are in rows and samples are in columns, so we have counts for 41,786 genes and 22 samples. The `View()` command has been commented out for the website, but running it will open a tab in RStudio that lets us look at the data and even sort the table by a particular column. However, the viewer cannot change the data inside the `counts` object, so we can only look, not permanently sort nor edit the entries. When finished, close the viewer using the X in the tab. Looks like the rownames are gene symbols and the column names are the GEO sample IDs, which are not very informative for telling us which sample is what.
+基因按行排列，样本按列排列，因此我们拥有 41,786 个基因和 22 个样本的计数数据。网站代码中`View()`命令被注释掉了，但执行该命令会在 RStudio 中打开一个标签页，允许我们查看数据，甚至按特定列对表格进行排序。不过查看器无法修改 `counts` 对象内部数据，因此只能浏览，无法永久排序或编辑条目。查看完毕后，点击标签页的 X 关闭查看器。看起来行名是基因符号，列名是 GEO 样本 ID，这些 ID 本身并不能直观说明每个样本的具体属性。
 
-### Sample annotations
+### 样本注释
 
-Next read in the sample annotations. Because samples are in columns in the count matrix, we will name the object `coldata`:
+接下来读入样本注释。由于样本在计数矩阵中按列排列，外面将样本对象命名为 `coldata`：
 
 ```{r read-sample-data, purl=TRUE}
 coldata <- read.csv("data/GSE96870_coldata_cerebellum.csv",
@@ -72,10 +70,11 @@ dim(coldata)
 # View(coldata)
 ```
 
-Now samples are in rows with the GEO sample IDs as the rownames, and we have 10 columns of information. The columns that are the most useful for this workshop are `geo_accession` (GEO sample IDs again), `sex` and `time`.
+现在样本按行排列，行名为 GEO 样本 ID，共有 10 列信息。在本研讨中最有用的列是 `geo_accession` (同样是 GEO 样本 ID), `sex` 和 `time`。
 
-### Gene annotations
-The counts only have gene symbols, which while short and somewhat recognizable to the human brain, are not always good absolute identifiers for exactly what gene was measured. For this we need additional gene annotations that were provided by the authors. The `count` and `coldata` files were in comma separated value (.csv) format, but we cannot use that for our gene annotation file because the descriptions can contain commas that would prevent a .csv file from being read in correctly. Instead the gene annotation file is in tab separated value (.tsv) format. Likewise, the descriptions can contain the single quote `'` (e.g., 5'), which by default R assumes indicates a character entry. So we have to use a more generic function `read.delim()` with extra arguments to specify that we have tab-separated data (`sep = "\t"`) with no quotes used (`quote = ""`). We also put in other arguments to specify that the first row contains our column names (`header = TRUE`), the gene symbols that should be our `row.names` are in the 5th column (`row.names = 5`), and that NCBI's species-specific gene ID (i.e., ENTREZID) should be read in as character data even though they look like numbers (`colClasses` argument). You can look up this details on available arguments by simply entering the function name starting with question mark. (e.g., `?read.delim`)
+### 基因注释
+
+计数数据仅含有基因符号（SYMBOL），虽然这些符号简短并且对人类大脑来说有一定可识别性，但它们并不总是能准确标识所测量的具体基因。因此我们需要作者提供的额外的基因注释。`count` 和 `coldata` 文件采用逗号分隔值（.csv）格式，但我们不能将这种格式用于基因注释文件，因为描述中可能包含逗号，这会导致 .csv 文件无法正确读取。因此，基因注释文件采用制表符分隔值（.tsv）格式。同样地，描述中可能包含单引号 `'`（例如 5'），默认情况下 R 会将其视为字符输入。因此，我们必须使用更通用的函数 `read.delim()`，并通过额外参数指定数据是以制表符分隔的（`sep = "\t"`）且未使用引号（`quote = ""`）。我们还设置了其他参数：第一行包含列名（`header = TRUE`），作为 `row.names` 的基因符号位于第5列（`row.names = 5`），以及 NCBI 的物种特异性基因 ID（即 ENTREZID）即使看起来像数字也应作为字符数据读取（通过`colClasses`参数）。要查看这些参数的详细信息，只需在函数名前输入问号即可（例如 `?read.delim`）。
 
 ```{r read-gene-annots, purl=TRUE}
 rowranges <- read.delim("data/GSE96870_rowranges.tsv", 
@@ -88,11 +87,7 @@ dim(rowranges)
 # View(rowranges)
 ```
 
-For each of the 41,786 genes, we have the `seqnames` (e.g., chromosome number), 
-`start` and `end` positions, `strand`, `ENTREZID`, gene product description 
-(`product`) and the feature type (`gbkey`). These gene-level metadata are 
-useful for the downstream analysis. For example, from the `gbkey` column, we
-can check what types of genes and how many of them are in our dataset:
+对于这 41,786 个基因中的每个基因，我们都有其 `seqnames`（例如染色体编号）、`start` 和 `end` 位置、`strand`（正链/负链）、`ENTREZID`、基因产物描述（`product`）以及特征类型（`gbkey`）。这些基因水平的元数据对于下游分析非常有用。例如，我们可以根据 `gbkey` 这一列来检查数据集中包含哪些类型的基因，以及各类基因的数量：
 
 ```{r table-gbkey, purl=TRUE}
 table(rowranges$gbkey)
@@ -100,39 +95,40 @@ table(rowranges$gbkey)
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-## Challenge: Discuss the following points with your neighbor
+## 挑战：和你的邻座（同学/同事）讨论以下几点
 
-1. How are the 3 objects `counts`, `coldata` and `rowranges` related to each other in terms of their rows and columns?
-2. If you only wanted to analyse the mRNA genes, what would you have to do keep just those (generally speaking, not exact codes)?
-3. If you decided the first two samples were outliers, what would you have to do to remove those (generally speaking, not exact codes)?
-  
+1. 就行和列而言，对象 `counts`、`coldata` 和 `rowranges` 三者之间是如何关联的？
+2. 如果你只想分析 mRNA 基因，通常来说，你需要怎么做才能只保留这些基因（不涉及具体代码）？
+3. 如果你判定前两个样本属于异常值（outliers），通常来说，你需要怎么做才能剔除这两个样本（不涉及具体代码）？
+
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 ::::::::::::::::::::::::::::::::::: solution
 
-1. In `counts`, the rows are genes just like the rows in `rowranges`. The columns in `counts` are the samples, but this corresponds to the rows in `coldata`. 
-2. I would have to remember subset both the rows of `counts` and the rows of `rowranges` to just the mRNA genes.
-3. I would have to remember to subset both the columns of `counts` but the rows of `coldata` to exclude the first two samples.
+1. 在 `counts` 中，行代表基因，这与 `rowranges` 中的行是一致的。而 `counts` 中的列代表样本，这对应于 `coldata` 中的行。
+2. 我需要记得同时筛选 `counts` 的行和 `rowranges` 的行，仅保留 mRNA 基因。
+3. 我需要记得同时筛选 `counts` 的列和 `coldata` 的行，以剔除前两个样本。
 
 :::::::::::::::::::::::::::::::::::
 
-You can see how keeping related information in separate objects could easily lead to mis-matches between our counts, gene annotations and sample annotations. This is why Bioconductor has created a specialized S4 class called a `SummarizedExperiment`. The details of a `SummarizedExperiment` were covered extensively at the end of the [Introduction to data analysis with R and Bioconductor](https://carpentries-incubator.github.io/bioc-intro/60-next-steps.html#next-steps) workshop. 
-As a reminder, let's take a look at the figure below representing the anatomy of the `SummarizedExperiment` class:
+可以看到，将相关信息分散存储在不同对象中很容易导致计数数据、基因注释和样本注释之间出现不匹配。这正是 Bioconductor 专门创建名为 `SummarizedExperiment` 的 S4 类的原因。关于 `SummarizedExperiment` 的详细说明，在 [Introduction to data analysis with R and Bioconductor](https://carpentries-incubator.github.io/bioc-intro/60-next-steps.html#next-steps) 的最后部分有深入讲解。
+
+作为回顾，让我们通过下图来了解 `SummarizedExperiment` 类的结构组成：
 
 ```{r SE, echo=FALSE, out.width="80%", fig.alt="Schematic showing the composition of a SummarizedExperiment object, with three assay matrices of equal dimension, rowData with feature annotations, colData with sample annotations, and a metadata list."}
 knitr::include_graphics("https://uclouvain-cbio.github.io/WSBIM1322/figs/SE.svg")
 ```
 
-It is designed to hold any type of quantitative 'omics data (`assays`) along with linked sample annotations (`colData`) and feature annotations with (`rowRanges`) or without (`rowData`) chromosome, start and stop positions. Once these three tables are (correctly!) linked, subsetting either samples and/or features will correctly subset the `assay`, `colData` and `rowRanges`. Additionally, most Bioconductor packages are built around the same core data infrastructure so they will recognize and be able to manipulate `SummarizedExperiment` objects. Two of the most popular RNA-seq statistical analysis packages have their own extended S4 classes similar to a `SummarizedExperiment` with the additional slots for statistical results: [DESeq2](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#the-deseqdataset)'s `DESeqDataSet` and [edgeR](https://www.rdocumentation.org/packages/edgeR/versions/3.14.0/topics/DGEList-class)'s `DGEList`. No matter which one you end up using for statistical analysis, you can start by putting your data in a `SummarizedExperiment`. 
+该设计旨在存储任何类型的定量组学数据（`assays`），同时关联样本注释（`colData`）以及带有染色体起止位置（`rowRanges`）或不带位置信息（`rowData`）的特征注释。只要正确关联这三个表格，对样本和/或特征的子集操作将自动同步作用于 `assay`、`colData` 和 `rowRanges`。此外，大多数 Bioconductor 软件包都基于相同核心数据架构开发，因此能识别并操作 `SummarizedExperiment` 对象。两个最流行的 RNA-seq 统计分析包还扩展了类似结构：https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#the-deseqdataset 的 `DESeqDataSet` 和 https://www.rdocumentation.org/packages/edgeR/versions/3.14.0/topics/DGEList-class 的 `DGEList` 均包含存放统计结果的额外插槽。无论最终采用哪种工具进行统计分析，您都可以先将数据存入 `SummarizedExperiment` 开始工作。
 
-## Assemble SummarizedExperiment
-We will create a `SummarizedExperiment` from these objects:
+## 组装 SummarizedExperiment
+我们将从这些对象创建一个 `SummarizedExperiment`:
 
-- The `count` object will be saved in `assays` slot    
-- The `coldata` object with sample information will be stored in `colData` slot (_**sample metadata**_)    
-- The `rowranges` object describing the genes will be stored in `rowRanges` slot (_**features metadata**_)     
+- `count` 对象将被保存在 `assays` 槽中  
+- 包含样本信息的 `coldata` 对象将存储在 `colData` 槽中（_**样本元数据**_）
+- 描述基因的 `rowranges` 对象将存储在 `rowRanges` 槽中（_**特征元数据**_）
 
-Before we put them together, you ABSOLUTELY MUST MAKE SURE THE SAMPLES AND GENES ARE IN THE SAME ORDER! Even though we saw that `count` and `coldata` had the same number of samples and `count` and `rowranges` had the same number of genes, we never explicitly checked to see if they were in the same order. One quick way to check:
+在我们把它们合并之前，你必须绝对确保样本和基因的顺序是一致的！尽管我们看到 `count` 和 `coldata` 的样本数量相同，`count` 和 `rowranges` 的基因数量也相同，但我们从未明确检查过它们的顺序是否一致。一个快速的检查方法是：
 
 
 ```{r match-names, purl=TRUE}
@@ -153,9 +149,7 @@ all.equal(colnames(counts), rownames(coldata))
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-If the features (i.e., genes) in the assay (e.g., `counts`) and the gene
-annotation table (e.g., `rowranges`) are different, how can we fix them? 
-Write the codes. 
+如果检测数据（如 `counts`）中的特征（即基因）与基因注释表（如 `rowranges`）不一致，我们该如何解决？编写代码。
 
 :::::::::::::::::::::::::::::::::::::::
 
@@ -171,9 +165,7 @@ all.equal(rownames(counts), rownames(rowranges))
 
 :::::::::::::::::::::::::::::::::::
 
-
-Once we have verified that samples and genes are in the same order, we can 
-then create our `SummarizedExperiment` object.
+一旦我们确认样本和基因的顺序一致，就可以创建我们的 `SummarizedExperiment` 对象了。
 
 ```{r make-se, purl=TRUE}
 # One final check:
@@ -188,8 +180,7 @@ se <- SummarizedExperiment(
 ```
 
 
-Because matching the genes and samples is so important, the `SummarizedExperiment()` constructor does some internal check to make sure they contain the same number of 
-genes/samples and the sample/row names match. If not, you will get some error messages:
+由于基因与样本的匹配至关重要，`SummarizedExperiment()` 构造函数会在内部进行一些检查，以确保它们包含相同数量的基因/样本且样本/行名称匹配。如果不匹配，您将收到一些错误信息：
 
 ```{r wrong-nsamples, purl=TRUE}
 # wrong number of samples:
@@ -213,8 +204,7 @@ bad2 <- SummarizedExperiment(
 ```
 
 
-
-A brief recap of how to access the various data slots in a `SummarizedExperiment` and how to make some manipulations:
+简要回顾如何访问 `SummarizedExperiment` 中的各种数据槽以及如何进行一些操作：
 
 ```{r access-se, purl=TRUE}
 # Access the counts
@@ -263,14 +253,9 @@ se$Label <- factor(se$Label, levels = se$Label)
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-1. How many samples are there for each level of the `Infection` variable?
-2. Create 2 objects named `se_infected` and `se_noninfected` containing
-a subset of `se` with only infected and non-infected samples, respectively.
-Then, calculate the mean expression levels of the first 500 genes for each
-object, and use the `summary()` function to explore the distribution
-of expression levels for infected and non-infected samples based on these genes.
-3. How many samples represent female mice infected with Influenza A on day 8?
-
+1. `Infection` 变量的每个水平有多少个样本？
+2. 创建两个名为 `se_infected` 和 `se_noninfected` 的对象，分别包含 `se` 中仅感染和非感染的样本子集。然后计算每个对象前 500 个基因的平均表达水平，并使用 `summary()` 函数基于这些基因探索感染和非感染样本的表达水平分布。
+3. 有多少个样本代表第8天感染甲型流感的雌性小鼠？
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -297,9 +282,9 @@ ncol(se[, se$sex == "Female" & se$infection == "InfluenzaA" & se$time == "Day8"]
 :::::::::::::::::::::::::::::::::::
 
 
-## Save SummarizedExperiment
+## 保存 SummarizedExperiment
 
-This was a bit of code and time to create our `SummarizedExperiment` object. We will need to keep using it throughout the workshop, so it can be useful to save it as an actual single file on our computer to read it back in to R's memory if we have to shut down RStudio. To save an R-specific file we can use the `saveRDS()` function and later read it back into R using the `readRDS()` function. 
+这段代码和创建 `SummarizedExperiment` 对象花费了一些时间和精力。我们将在整个研讨中持续使用它，因此将其保存为一个实际的文件存放在电脑上会很有用，这样如果我们需要关闭 RStudio，还可以将其重新读入 R 的内存中。要保存 R 专用的文件，我们可以使用 `saveRDS()` 函数，之后使用 `readRDS()` 函数将其重新读入 R。
 
 ```{r save-se, purl=TRUE}
 saveRDS(se, "data/GSE96870_se.rds")
@@ -308,18 +293,17 @@ se <- readRDS("data/GSE96870_se.rds")
 ```
 
 
-## Data provenance and reproducibility
+## 数据溯源与可重复性
 
-We have now created an external .rds file that represents our RNA-Seq data in a format that can be read into R and used by various packages for our analyses. But we should still keep a record of the codes that created the .rds file from the 3 files we downloaded from the internet. But what is the provenance of those files - i.e, where did they come from and how were they made? The original counts and gene information were deposited in the GEO public database, accession number [GSE96870](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96870). But these counts were generated by running alignment/quantification programs on the also-deposited fastq files that hold the sequence base calls and quality scores, which in turn were generated by a specific sequencing machine using some library preparation method on RNA extracted from samples collected in a particular experiment. Whew! 
+我们现在已经创建了一个外部的 .rds 文件，它以可读入 R 并被各种分析包使用的格式，呈现了我们的 RNA-Seq 数据。但是，我们仍然应该保留一份从网上下载的三个文件创建这个 .rds 文件的代码记录。然而，这些文件的溯源信息是什么——也就是说，它们来自哪里，又是如何生成的？原始的 counts 数据和基因信息被存放在 GEO 公共数据库中，登录号为 [GSE96870](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96870)。但这些 counts 数据是通过对同样存放在数据库中的 fastq 文件运行比对/定量程序而生成的，fastq 文件包含了序列碱基 calls 和质量分数，而这些 fastq 文件又是由特定的测序仪，使用某种文库制备方法，对从特定实验中收集的样本中提取的 RNA 进行测序而产生的。
 
-If you conducted the original experiment ideally you would have the complete record of where and how the data were generated. But you might use publicly-available data sets so the best you can do is to keep track of what original files you got from where and what manipulations you have done to them. Using R codes to keep track of everything is an excellent way to be able to reproduce the entire analysis from the original input files. The exact results you get can differ depending on the R version, add-on package versions and even what operating system you use, so make sure to keep track of all this information as well by running `sessionInfo()` and recording the output (see example at end of lesson). 
-
+如果你进行了原始实验，理想情况下你应该有关于数据生成地点和方式的完整记录。但如果你使用的是公开可用的数据集，那么你能做的最好的事情就是记录下你从何处获取了哪些原始文件，以及你对它们进行了哪些处理。使用 R 代码来记录所有操作是能够从原始输入文件重现整个分析过程的极佳方法。你得到的确切结果可能会因 R 版本、附加包的版本甚至你使用的操作系统而有所不同，因此请务必通过运行 `sessionInfo()` 并记录输出（参见本课结尾的示例）来同时记录所有这些信息。
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-## Challenge: How to subset to mRNA genes
+## 挑战：如何筛选出 mRNA 基因
 
-Before, we conceptually discussed subsetting to only the mRNA genes. Now that we have our `SummarizedExperiment` object, it becomes much easier to write the codes to subset `se` to a new object called `se_mRNA` that contains only the genes/rows where the `rowData(se)$gbkey` is equal to mRNA. Write the codes and then check you correctly got the 21,198 mRNA genes:
+之前，我们在概念上讨论过只筛选出 mRNA 基因。现在我们有了 `SummarizedExperiment` 对象，编写代码将 `se` 筛选到一个名为 `se_mRNA` 的新对象中就变得容易多了，该新对象只包含 `rowData(se)$gbkey` 等于 "mRNA" 的那些基因/行。请编写代码，然后检查你是否正确获得了 21,198 个 mRNA 基因。
   
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -333,44 +317,32 @@ dim(se_mRNA)
 :::::::::::::::::::::::::::::::::::
 
 
+## 基因注释
 
-## Gene Annotations
-Depending on who generates your count data, you might not have a nice file of 
-additional gene annotations. There may only be the count row names, which 
-could be gene symbols or ENTREZIDs or another database's ID. Characteristics 
-of gene annotations differ based on their annotation strategies and information 
-sources. For example, RefSeq human gene models (i.e., Entrez from NCBI) are 
-well supported and broadly used in various studies. The UCSC Known Genes 
-dataset is based on protein data from Swiss-Prot/TrEMBL (UniProt) and the 
-associated mRNA data from GenBank, and serves as a foundation for the UCSC 
-Genome Browser. Ensembl genes contain both automated genome annotation and 
-manual curation.
+根据生成你 count 数据的人不同，你可能没有一个包含额外基因注释的良好文件。可能只有 count 数据的行名，这些行名可能是基因符号、ENTREZID 或其他数据库的 ID。基因注释的特征因其注释策略和信息来源的不同而有所差异。例如，RefSeq 人类基因模型（即 NCBI 的 Entrez）得到了良好的支持，并在各种研究中被广泛使用。UCSC Known Genes 数据集基于 Swiss-Prot/TrEMBL（UniProt）的蛋白质数据以及 GenBank 的相关 mRNA 数据，并为 UCSC 基因组浏览器提供了基础。Ensembl 基因既包含自动化的基因组注释，也包含人工 curation。
 
-You can find more information in Bioconductor [Annotation Workshop](https://jmacdon.github.io/Bioc2022Anno/articles/AnnotationWorkshop.html)
-material.
+你可以在 Bioconductor [Annotation Workshop](https://jmacdon.github.io/Bioc2022Anno/articles/AnnotationWorkshop.html) 材料中找到更多信息。
 
-Bioconductor has many packages and functions that can help you to get additional annotation information for your genes. The available resources are covered in more detail in [Episode 7 Gene set enrichment analysis](https://carpentries-incubator.github.io/bioc-rnaseq/07-gene-set-analysis.html#gene-set-resources). 
+Bioconductor 有许多包和函数可以帮助你获取基因的额外注释信息。可用的资源将在[第 7 集：基因集富集分析](https://carpentries-incubator.github.io/bioc-rnaseq/07-gene-set-analysis.html#gene-set-resources) 中进行更详细的介绍。
 
-Here, we will introduce one of the gene ID mapping functions, `mapIds`:
+这里，我们将介绍其中一个基因 ID 映射函数 `mapIds`：
+
 ```
 mapIds(annopkg, keys, column, keytype, ..., multiVals)
 ```
 
-Where 
+在这里 
 
-- *annopkg* is the annotation package        
-- *keys* are the IDs that we **know**       
-- *column* is the value we **want**    
-- *keytype* is the type of key used    
+- **annopkg** 是注释包
+- **keys** 是我们**已知**的 ID
+- **column** 是我们**想要**获取的值
+- **keytype** 是所使用的 key 的类型
 
 ```{r add-symbol, purl=TRUE}
 mapIds(org.Mm.eg.db, keys = "497097", column = "SYMBOL", keytype = "ENTREZID")
 ```
 
-Different from the `select()` function, `mapIds()` function handles 1:many 
-mapping between keys and columns through an additional argument, `multiVals`.
-The below example demonstrate this functionality using the `hgu95av2.db` 
-package, an Affymetrix Human Genome U95 Set annotation data.
+与 `select()` 函数不同，`mapIds()` 函数通过一个额外的参数 `multiVals` 来处理 keys 与 columns 之间一对多的映射关系。下面的示例使用 `hgu95av2.db` 包（一个 Affymetrix 人类基因组 U95 芯片的注释数据）来演示这一功能。
 
 ```{r add-alias, purl=TRUE}
 keys <- head(keys(hgu95av2.db, "ENTREZID"))
@@ -390,16 +362,13 @@ mapIds(hgu95av2.db, keys = keys, column = "ALIAS", keytype = "ENTREZID", multiVa
 ```
 
 
-
-
-
-## Session info
+## 会话信息
 
 ```{r session-info, purl=TRUE}
 sessionInfo()
 ```
 
 ::: keypoints
--   Depending on the gene expression quantification tool used, there are different ways (often distributed in Bioconductor packages) to read the output into a `SummarizedExperiment` or `DGEList` object for further processing in R.
--   Stable gene identifiers such as Ensembl or Entrez IDs should preferably be used as the main identifiers throughout an RNA-seq analysis, with gene symbols added for easier interpretation.
+- 根据所使用的基因表达定量工具的不同，有多种方法（通常分布在 Bioconductor 包中）可以将其输出读入到 `SummarizedExperiment` 或 `DGEList` 对象中，以便在 R 中进行后续处理。
+- 在整个 RNA-seq 分析过程中，应优先使用稳定的基因标识符（如 Ensembl 或 Entrez ID）作为主要标识符，同时添加基因符号以便于解读。
 :::
