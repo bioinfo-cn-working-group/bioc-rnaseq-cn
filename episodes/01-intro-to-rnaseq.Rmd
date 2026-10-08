@@ -1,6 +1,6 @@
 ---
 source: Rmd
-title: Introduction to RNA-seq
+title: RNA-seq 简介
 teaching: 65
 exercises: 35
 ---
@@ -8,192 +8,192 @@ exercises: 35
 
 ::::::::::::::::::::::::::::::::::::::: objectives
 
-- Explain what RNA-seq is.
-- Describe some of the most common design choices that have to be made before running an RNA-seq experiment.
-- Provide an overview of the procedure to go from the raw data to the read count matrix that will be used for downstream analysis.
-- Show some common types of results and visualizations generated in RNA-seq analyses.
+- 解释什么是 RNA-seq。
+- 描述开展 RNA-seq 实验前常见的实验设计选择。
+- 概述从原始数据生成读段计数矩阵的流程，该矩阵将用于下游分析。
+- 展示 RNA-seq 分析中常见的结果类型及其可视化方式。
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 :::::::::::::::::::::::::::::::::::::::: questions
 
-- What are the different choices to consider when planning an RNA-seq experiment? 
-- How does one process the raw fastq files to generate a table with read counts per gene and sample?
-- Where does one find information about annotated genes for a given organism?
-- What are the typical steps in an RNA-seq analysis?
+- 设计 RNA-seq 实验时，需要考虑哪些选择？
+- 如何处理原始 FASTQ 文件，生成记录各样本中每个基因读段计数的表格？
+- 在哪里可以找到某个物种的基因注释信息？
+- RNA-seq 分析通常包含哪些步骤？
 
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
-# What are we measuring in an RNA-seq experiment? 
+# RNA-seq 实验测量的是什么？
 
-<img src="fig/alternative_splicing_sub.png" alt="Illustration of part of the central dogma of molecular biology, where DNA is transcribed to RNA, and intronic sequences are spliced out"/>
+<img src="fig/alternative_splicing_sub.png" alt="分子生物学中心法则的部分过程示意图：DNA 转录为 RNA，内含子序列随后被剪接去除"/>
 
-In order to produce an RNA molecule, a stretch of DNA is first transcribed into mRNA. 
-Subsequently, intronic regions are spliced out, and exonic regions are combined into different _isoforms_ of a gene. 
+生成 RNA 分子时，一段 DNA 首先被转录为 mRNA。
+随后，内含子区域被剪接去除，外显子区域以不同方式组合，形成同一基因的不同 _转录本异构体（isoform）_。
 
-<img src="fig/rnaseq_martin_wang.png" alt="Illustration of the major experimental steps of an RNA-seq experiment"/>
+<img src="fig/rnaseq_martin_wang.png" alt="RNA-seq 实验的主要步骤示意图"/>
 
-(figure adapted from [Martin & Wang (2011)](https://www.nature.com/articles/nrg3068)).
+（图片改编自 [Martin & Wang (2011)](https://www.nature.com/articles/nrg3068)。）
 
-In a typical RNA-seq experiment, RNA molecules are first collected from a sample of interest.
-After a potential enrichment for molecules with polyA tails (predominantly mRNA), or depletion of otherwise highly abundant ribosomal RNA, the remaining molecules are fragmented into smaller pieces (there are also long-read protocols where entire molecules are considered, but those are not the focus of this lesson).
-It is important to keep in mind that because of the splicing excluding intronic sequences, an RNA molecule (and hence a generated fragment) may not correspond to an uninterrupted region of the genome. 
-The RNA fragments are then reverse transcribed into cDNA, whereafter sequencing adapters are added to each end. 
-These adapters allow the fragments to attach to the flow cell. 
-Once attached, each fragment will be heavily amplified to generate a cluster of identical sequences on the flow cell.
-The sequencer then determines the sequence of the first 50-200 nucleotides of the cDNA fragments in each such cluster, starting from one end, which corresponds to a _read_. 
-Many data sets are generated with so called paired-end protocols, in which the fragments are read from both ends. 
-Millions of such reads (or pairs of reads) will be generated in an experiment, and these will be represented in a (pair of) FASTQ files. 
-Each read is represented by four consecutive lines in such a file: first a line with a unique read identifier, next the inferred sequence of the read, then another identifier line, and finally a line containing the base quality for each inferred nucleotide, representing the probability that the nucleotide in the corresponding position has been correctly identified. 
+典型的 RNA-seq 实验首先从待研究样本中提取 RNA 分子。
+实验中可能会富集带有 polyA 尾的 RNA 分子（主要是 mRNA），或去除含量很高的核糖体 RNA，随后将剩余的 RNA 分子打断成较短的片段（也有针对完整分子的长读长测序方案，但本课程不作重点介绍）。
+需要记住，剪接会去除内含子序列，因此一个 RNA 分子及其产生的片段可能并不对应基因组上的一段连续区域。
+接着，将 RNA 片段逆转录为 cDNA，并在两端连接测序接头。
+这些接头使片段能够附着到流动槽（flow cell）上。
+附着后，每个片段经过大量扩增，在流动槽上形成一个由相同序列组成的簇。
+测序仪从每个簇中 cDNA 片段的一端开始，测定前 50-200 个核苷酸的序列，所得序列称为一个 _读段（read）_。
+许多数据集采用双端测序方案，即从片段的两端分别读取序列。
+一次实验会产生数百万条读段（或读段对），并将它们记录在一个 FASTQ 文件（或一对 FASTQ 文件）中。
+FASTQ 文件中的每条读段由连续四行表示：第一行是唯一的读段标识符，第二行是推断出的读段序列，第三行是另一行标识信息，第四行是序列中各核苷酸的碱基质量值，反映对应位置的核苷酸被正确识别的概率。
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-## Challenge: Discuss the following points with your neighbor
+## 练习：与身边的同学讨论以下问题
 
-1. What are potential advantages and disadvantages of paired-end protocols compared to only sequencing one end of a fragment?
-2. What quality assessment can you think of that would be useful to perform on the FASTQ files with read sequences? 
+1. 与只测定片段一端序列的方案相比，双端测序可能有哪些优点和缺点？
+2. 对于包含读段序列的 FASTQ 文件，你认为可以进行哪些有用的质量评估？
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
-# Experimental design considerations
+# 实验设计需要考虑的问题
 
-Before starting to collect data, it is essential to take some time to think about the design of the experiment. 
-Experimental design concerns the organization of experiments with the purpose of making sure that the right type of data, and enough of it, is available to answer the questions of interest as efficiently as possible. 
-Aspects such as which conditions or sample groups to consider, how many replicates to collect, and how to plan the data collection in practice are important questions to consider. 
-Many high-throughput biological experiments (including RNA-seq) are sensitive to ambient conditions, and it is often difficult to directly compare measurements that have been done on different days, by different analysts, in different centers, or using different batches of reagents. 
-For this reason, it is very important to design experiments properly, to make it possible to disentangle different types of (primary and secondary) effects.
+开始收集数据之前，需要花些时间考虑实验设计。
+实验设计关注如何组织实验，以获得类型合适、数量充足的数据，尽可能高效地回答研究问题。
+需要考虑的问题包括：研究哪些实验条件或样本组、设置多少个重复，以及如何安排实际的数据采集。
+包括 RNA-seq 在内的许多高通量生物学实验都对环境条件敏感，因此，在不同日期、由不同分析人员、在不同中心或使用不同批次试剂得到的测量结果，往往难以直接比较。
+合理的实验设计有助于区分不同类型的效应，包括主要效应和次要效应。
 
-<img src="fig/factors-affecting-measurements.png" alt="A classification of many different factors affecting measurements obtained from an experiment into treatment, biological, technical and error effects"/>
+<img src="fig/factors-affecting-measurements.png" alt="影响实验测量结果的多种因素，分为处理效应、生物学效应、技术效应和误差效应"/>
 
-(figure from [Lazic (2017)](https://www.amazon.com/Experimental-Design-Laboratory-Biologists-Reproducibility/dp/1107424887)).
+（图片来自 [Lazic (2017)](https://www.amazon.com/Experimental-Design-Laboratory-Biologists-Reproducibility/dp/1107424887)。）
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-## Challenge: Discuss with your neighbor
+## 练习：与身边的同学讨论
 
-1. Why is it essential to have replicates? 
+1. 为什么实验中必须设置重复？
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
-Importantly, not all replicates are equally useful, from a statistical point of view. 
-One common way to classify the different types of replicates is as 'biological' and 'technical', where the latter are typically used to test the reproducibility of the measurement device, while biological replicates inform about the variability between different samples from a population of interest.
-Another scheme classifies replicates (or units) into 'biological', 'experimental' and 'observational'. 
-Here, biological units are entities we want to make inferences about (e.g., animals, persons).
-Replication of biological units is required to make a general statement of the effect of a treatment - we can not draw a conclusion about the effect of drug on a population of mice by studying a single mouse only.
-Experimental units are the smallest entities that can be _independently assigned to a treatment_ (e.g., animal, litter, cage, well). 
-Only replication of experimental units constitute true replication.
-Observational units, finally, are entities at which measurements are made.
+从统计学角度看，不同类型重复的作用并不相同。
+一种常见分类将重复分为“生物学重复”和“技术重复”。技术重复通常用于检验测量设备的可重复性，生物学重复则反映研究总体中不同样本之间的变异。
+另一种分类将重复（或单位）分为“生物学单位”“实验单位”和“观测单位”。
+生物学单位是我们希望作出推断的对象，例如动物或人。
+要对某种处理的效应作出具有普遍性的判断，就需要有多个生物学单位；仅研究一只小鼠，无法推断药物对小鼠总体的影响。
+实验单位是能够 _独立分配到某种处理_ 的最小单位，例如一只动物、一窝动物、一个笼子或一个培养孔。
+只有实验单位的重复才构成真正的重复。
+观测单位则是实际进行测量的对象。
 
 
-To explore the impact of experimental design on the ability to answer questions of interest, we are going to use an interactive application, provided in the [ConfoundingExplorer](https://csoneson.github.io/ConfoundingExplorer/) package. 
+我们将使用 [ConfoundingExplorer](https://csoneson.github.io/ConfoundingExplorer/) 包提供的交互式应用，探索实验设计如何影响回答研究问题的能力。
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-## Challenge
+## 练习
 
-Launch the ConfoundingExplorer application and familiarize yourself with the interface.
+启动 ConfoundingExplorer 应用，熟悉它的界面。
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-## Challenge
+## 练习
 
-1. For a balanced design (equal distribution of replicates between the two groups in each batch), what is the effect of increasing the strength of the batch effect? Does it matter whether one adjusts for the batch effect or not?
-2. For an increasingly unbalanced design (most or all replicates of one group coming from one batch), what is the effect of increasing the strength of the batch effect? Does it matter whether one adjusts for the batch effect or not?
+1. 在平衡设计中（每个批次内，两组的重复数相同），增大批次效应会产生什么影响？是否校正批次效应，会影响结果吗？
+2. 当设计越来越不平衡时（某一组的大多数或全部重复来自同一批次），增大批次效应会产生什么影响？是否校正批次效应，会影响结果吗？
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
-# RNA-seq quantification: from reads to count matrix
+# RNA-seq 定量：从读段到计数矩阵
 
-<img src="fig/rna-quant.jpeg" alt="Illustration of a set of reads generated by a sequencer, and genomic and transcriptomic reference sequences"/>
+<img src="fig/rna-quant.jpeg" alt="测序仪生成的一组读段，以及基因组和转录组参考序列的示意图"/>
 
-The read sequences contained in the FASTQ files from the sequencer are typically not directly useful as they are, since we do not have the information about which gene or transcript they originate from. 
-Thus, the first processing step is to attempt to identify the location of origin for each read, and use this to obtain an estimate of the number of reads originating from a gene (or another features, such as an individual transcript).
-This can then be used as a proxy for the abundance, or expression level, of the gene.
-There is a plethora of RNA quantification pipelines, and the most common approaches can be categorized into three main types:
+测序仪输出的 FASTQ 文件通常不能直接用于分析，因为我们还不知道其中的读段来自哪个基因或转录本。
+因此，处理数据的第一步是尝试确定每条读段的来源位置，并据此估计来自某个基因（或其他特征，例如单个转录本）的读段数。
+这个计数可以用来间接衡量基因的丰度，也就是表达水平。
+RNA 定量流程有很多，常见方法可分为三类：
 
-1. Align reads to the genome, and count the number of reads that map within the exons of each gene.
-   This is the one of simplest methods. For species for which the transcriptome is poorly annotated, this would be the preferred approach.
-   Example: `STAR` alignment to GRCm39 + `Rsubread` [featureCounts](https://doi.org/10.1093%2Fnar%2Fgkz114)
+1. 将读段比对到基因组，统计落在每个基因外显子区域内的读段数。
+   这是较简单的方法之一，对于转录组注释不完善的物种，通常优先考虑这种方法。
+   示例：使用 `STAR` 比对到 GRCm39，再使用 `Rsubread` 的 [featureCounts](https://doi.org/10.1093%2Fnar%2Fgkz114) 进行计数。
 
-2. Align reads to the transcriptome, quantify transcript expression, and summarize transcript expression into gene expression.
-   This approach can produce accurate quantification results ([independent benchmarking](https://doi.org/10.1186/s13059-016-0940-1)), 
-   particularly for high-quality samples without DNA contamination.
-   Example: RSEM quantification using `rsem-calculate-expression --star` on the GENCODE GRCh38 transcriptome + `tximport`
+2. 将读段比对到转录组，对转录本表达进行定量，再将转录本表达量汇总为基因表达量。
+   这种方法能够得到准确的定量结果（参见[独立基准评测](https://doi.org/10.1186/s13059-016-0940-1)），
+   尤其适用于没有 DNA 污染的高质量样本。
+   示例：使用 RSEM 的 `rsem-calculate-expression --star` 对 GENCODE GRCh38 转录组进行定量，再用 `tximport` 汇总。
 
-3. Pseudoalign reads against the transcriptome, using the corresponding genome as a decoy, quantifying transcript expression in the process, 
-   and summarize the transcript-level expression into gene-level expression.
-   The advantages of this approach include: computational efficiency, mitigation of the effect of DNA contamination, and GC bias correction.
-   Example: `salmon quant --gcBias` + `tximport`
+3. 将读段与转录组进行伪比对，同时使用相应的基因组作为诱饵序列（decoy），在此过程中对转录本表达进行定量，
+   再将转录本水平的表达量汇总为基因水平的表达量。
+   这种方法的优点包括计算效率高、减轻 DNA 污染的影响，以及校正 GC 偏倚。
+   示例：`salmon quant --gcBias` + `tximport`。
    
-At typical sequencing read depth, gene expression quantification is often more accurate than transcript expression quantification.
-However, differential gene expression analyses can be [improved](https://doi.org/10.12688/f1000research.7563.1)
-by having access also to transcript-level quantifications.
+在常见的测序深度下，基因表达定量通常比转录本表达定量更准确。
+不过，同时利用转录本水平的定量信息，可以[改善](https://doi.org/10.12688/f1000research.7563.1)
+基因差异表达分析的结果。
 
-Other tools used in RNA-seq quantification include: TopHat2, bowtie2, kallisto, HTseq, among many others.
+其他用于 RNA-seq 定量的工具还包括 TopHat2、bowtie2、kallisto 和 HTseq 等。
 
-The choice of an appropriate RNA-seq quantification depends on the quality of the transcriptome annotation,
-the quality of the RNA-seq library preparation, the presence of contaminating sequences, among many factors.
-Often, it can be informative to compare the quantification results of multiple approaches. 
+选择合适的 RNA-seq 定量方法，需要考虑转录组注释质量、
+RNA-seq 文库制备质量，以及是否存在污染序列等因素。
+比较不同方法的定量结果，通常有助于理解数据。
 
-Because the best quantification method is species- and experiment-dependent, and often requires large amounts of computing resources, this workshop will not cover any specifics of how to generate the counts. 
-Instead, we recommend checking out the references above and consulting with a local bioinformatics expert if you need help.
-
-:::::::::::::::::::::::::::::::::::::::  challenge
-
-## Challenge: Discuss the following points with your neighbor
-
-1. Which of the mentioned RNA-Seq quantification tools have you heard about? Do you know other pros and cons of the methods?
-2. Have you done your own RNA-Seq experiment? If so, what quantification tool did you use and why did you choose it?
-3. Do you have access to specific tools / local bioinformatics expert / computational resources for quantification? If you don't, how might you gain access?
-  
-::::::::::::::::::::::::::::::::::::::::::::::::::
-
-# Finding the reference sequences
-
-In order to quantify abundances of known genes or transcripts from RNA-seq data, we need a reference database informing us of the sequence of these features, to which we can then compare our reads. 
-This information can be obtained from different online repositories. 
-It is highly recommended to choose one of these for a particular project, and not mix information from different sources. 
-Depending on the quantification tool you have chosen, you will need different types of reference information. 
-If you are aligning your reads to the genome and investigating the overlap with known annotated features, you will need the full genome sequence (provided in a fasta file) and a file that tells you the genomic location of each annotated feature (typically provided in a gtf file). 
-If you are mapping your reads to the transcriptome, you will instead need a file with the sequence of each transcript (again, a fasta file). 
-
-* If you are working with mouse or human samples, the [GENCODE project](https://www.gencodegenes.org/) provides well-curated reference files. 
-* [Ensembl](https://www.ensembl.org/info/data/ftp/index.html) provides reference files for a large set of organisms, including [plants](https://plants.ensembl.org/info/data/ftp/index.html) and [fungi](https://fungi.ensembl.org/info/data/ftp/index.html).
-* [UCSC](https://hgdownload.soe.ucsc.edu/downloads.html) also provides reference files for many organisms.
+由于最佳定量方法取决于物种和具体实验，而且定量过程往往需要大量计算资源，本课程不介绍生成计数数据的具体操作。
+如果需要帮助，建议查阅上述参考资料，并咨询身边的生物信息学专家。
 
 :::::::::::::::::::::::::::::::::::::::  challenge
 
-## Challenge
+## 练习：与身边的同学讨论以下问题
 
-Download the latest mouse transcriptome fasta file from GENCODE. What do the entries look like? Tip: to read the file into R, consider the `readDNAStringSet()` function from the `Biostrings` package.
+1. 上述 RNA-seq 定量工具中，你听说过哪些？你还知道这些方法的其他优点或缺点吗？
+2. 你做过自己的 RNA-seq 实验吗？如果做过，使用了什么定量工具，为什么选择它？
+3. 你是否有可用的定量工具、可以咨询的生物信息学专家或可用的计算资源？如果没有，可以通过哪些途径获取？
   
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
-# Where are we heading towards in this workshop? 
+# 获取参考序列
 
-During the coming two days, we will discuss and practice how to perform differential expression analysis with Bioconductor, and how to interpret the results. 
-We will start from a count matrix, and thus assume that the initial quality assessment and quantification of gene expression have already been done. 
-The outcome of a differential expression analysis is often represented using graphical representations, such as MA plots and heatmaps (see below for examples). 
+要利用 RNA-seq 数据对已知基因或转录本的丰度进行定量，需要参考数据库提供这些特征的序列，以便将读段与之比对。
+这些信息可以从不同的在线数据库获取。
+建议在同一个项目中选定一个来源，避免混用不同来源的信息。
+所需参考信息的类型取决于使用的定量工具。
+如果将读段比对到基因组，并检查它们与已知注释特征的重叠情况，就需要完整的基因组序列（FASTA 文件），以及记录各注释特征在基因组上位置的文件（通常为 GTF 文件）。
+如果将读段比对到转录组，则需要包含各转录本序列的文件，同样为 FASTA 格式。
 
-<img src="fig/maPlot-example.png" alt="An example MA plot"/>
-<img src="fig/heatmap-example.png" alt="An example heatmap"/>
+* 对于小鼠或人类样本，[GENCODE 项目](https://www.gencodegenes.org/) 提供经过精心整理的参考文件。
+* [Ensembl](https://www.ensembl.org/info/data/ftp/index.html) 提供多种生物的参考文件，包括[植物](https://plants.ensembl.org/info/data/ftp/index.html)和[真菌](https://fungi.ensembl.org/info/data/ftp/index.html)。
+* [UCSC](https://hgdownload.soe.ucsc.edu/downloads.html) 也提供多种生物的参考文件。
 
-In the following episodes we will learn, among other things, how to generate and interpret these plots. 
-It is also common to perform follow-up analyses to investigate whether there is a functional relationship among the top-ranked genes, so called gene set (enrichment) analysis, which will also be covered in a later episode. 
+:::::::::::::::::::::::::::::::::::::::  challenge
+
+## 练习
+
+从 GENCODE 下载最新的小鼠转录组 FASTA 文件。其中的条目是什么样的？提示：可以使用 `Biostrings` 包中的 `readDNAStringSet()` 函数将文件读入 R。
+  
+::::::::::::::::::::::::::::::::::::::::::::::::::
+
+# 本课程接下来学习什么？
+
+在接下来的两天里，我们将讨论并实践如何使用 Bioconductor 进行差异表达分析，以及如何解读分析结果。
+我们将从计数矩阵开始，因此假定前期质量评估和基因表达定量已经完成。
+差异表达分析结果通常通过图形呈现，例如 MA 图和热图（示例如下）。
+
+<img src="fig/maPlot-example.png" alt="MA 图示例"/>
+<img src="fig/heatmap-example.png" alt="热图示例"/>
+
+在后续章节中，我们会学习如何绘制和解读这些图形，以及其他相关内容。
+一种常见的后续分析是研究排名靠前的基因之间是否存在功能联系，即基因集（富集）分析，后面的章节也会介绍这一内容。
 
 :::::::::::::::::::::::::::::::::::::::: keypoints
 
-- RNA-seq is a technique of measuring the amount of RNA expressed within a cell/tissue and state at a given time.
-- Many choices have to be made when planning an RNA-seq experiment, such as whether to perform poly-A selection or ribosomal depletion, whether to apply a stranded or an unstranded protocol, and whether to sequence the reads in a single-end or paired-end fashion. Each of the choices have consequences for the processing and interpretation of the data. 
-- Many approaches exist for quantification of RNA-seq data. Some methods align reads to the genome and count the number of reads overlapping gene loci. Other methods map reads to the transcriptome and use a probabilistic approach to estimate the abundance of each gene or transcript. 
-- Information about annotated genes can be accessed via several sources, including Ensembl, UCSC and GENCODE. 
+- RNA-seq 是一种测量细胞或组织在特定时间、特定状态下 RNA 表达量的技术。
+- 设计 RNA-seq 实验时需要作出多种选择，例如采用 poly-A 富集还是去除核糖体 RNA，采用链特异性还是非链特异性方案，以及进行单端还是双端测序。每种选择都会影响数据的处理和解读。
+- RNA-seq 数据有多种定量方法。有些方法将读段比对到基因组，统计与基因区域重叠的读段数；另一些方法将读段比对到转录组，并通过概率模型估计各基因或转录本的丰度。
+- 基因注释信息可以从 Ensembl、UCSC 和 GENCODE 等来源获取。
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::
 
